@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="RGVMonitor.App.MatchPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:RGVMonitor.App.ViewModels">
+
+    <Grid Padding="28,20,28,24" RowSpacing="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Encabezado -->
+        <StackPanel Grid.Row="0" Spacing="10">
+            <StackPanel.ChildrenTransitions>
+                <TransitionCollection>
+                    <EntranceThemeTransition FromVerticalOffset="-16" />
+                </TransitionCollection>
+            </StackPanel.ChildrenTransitions>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="Partida en vivo" FontSize="28" FontWeight="Bold" />
+                    <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                               FontSize="13" Opacity="0.7" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12"
+                            VerticalAlignment="Center">
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                  Width="22" Height="22" />
+                    <Button Command="{x:Bind ViewModel.RefreshCommand}"
+                            ToolTipService.ToolTip="Refrescar">
+                        <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- Tu progreso de rango -->
+            <TextBlock Text="{x:Bind ViewModel.SelfRankCaption, Mode=OneWay}"
+                       Visibility="{x:Bind ViewModel.SelfRankVisibility, Mode=OneWay}"
+                       FontSize="14" FontWeight="SemiBold"
+                       Foreground="{ThemeResource SystemControlForegroundAccentBrush}" />
+
+            <!-- Probabilidad de victoria (solo en partida) -->
+            <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.WinProbVisibility, Mode=OneWay}">
+                <TextBlock Text="{x:Bind ViewModel.WinProbCaption, Mode=OneWay}"
+                           FontSize="20" FontWeight="Bold" />
+                <ProgressBar x:Name="WinBar"
+                             Maximum="100" Height="18" CornerRadius="9" Width="480"
+                             HorizontalAlignment="Left" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Cabecera de columnas -->
+        <Grid Grid.Row="1" Padding="22,0,16,0" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="150" />
+                <ColumnDefinition Width="170" />
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="150" />
+                <ColumnDefinition Width="72" />
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="1" Text="AGENTE" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="2" Text="RANGO" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="3" Text="KD" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="4" Text="HS" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="5" Text="WR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="6" Text="PEAK" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="7" Text="RR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="8" Text="NIVEL" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="9" Text="JUGADOR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+        </Grid>
+
+        <!-- Tarjeta con la lista -->
+        <Border Grid.Row="2"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1" CornerRadius="10">
+          <Grid x:Name="CardShimmerHost" Loaded="OnCardChanged" SizeChanged="OnCardChanged">
+            <ListView ItemsSource="{x:Bind ViewModel.Players, Mode=OneWay}"
+                      SelectionMode="None" Padding="6">
+                <!-- Filas que entran escalonadas según llegan los datos y se reacomodan
+                     suave al ordenar aliados/enemigos. -->
+                <ListView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <AddDeleteThemeTransition />
+                        <ReorderThemeTransition />
+                        <ContentThemeTransition />
+                        <EntranceThemeTransition IsStaggeringEnabled="True" />
+                    </TransitionCollection>
+                </ListView.ItemContainerTransitions>
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PlayerRowViewModel">
+                        <Grid Padding="16,8" ColumnSpacing="10"
+                              Background="{x:Bind RowBackground}" CornerRadius="6"
+                              PointerEntered="OnRowPointerEntered" PointerExited="OnRowPointerExited">
+                            <!-- Hover: eleva (sombra) y hace un pequeño zoom. -->
+                            <Grid.ScaleTransition>
+                                <Vector3Transition Duration="0:0:0.16" />
+                            </Grid.ScaleTransition>
+                            <Grid.TranslationTransition>
+                                <Vector3Transition Duration="0:0:0.16" />
+                            </Grid.TranslationTransition>
+                            <Grid.Shadow>
+                                <ThemeShadow />
+                            </Grid.Shadow>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="48" />
+                                <ColumnDefinition Width="48" />
+                                <ColumnDefinition Width="48" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="72" />
+                                <ColumnDefinition Width="48" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Rectangle Grid.Column="0" Width="4" RadiusX="2" RadiusY="2"
+                                       Fill="{x:Bind TeamBrush}" />
+                            <!-- Agente -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <Border Width="40" Height="40" CornerRadius="8"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                    <Image Source="{x:Bind AgentIcon}" Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Text="{x:Bind AgentName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <!-- Rango: icono + nombre -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Image Source="{x:Bind RankIcon}" Width="28" Height="28" />
+                                <TextBlock Text="{x:Bind RankName}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="3" Text="{x:Bind Kd}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="4" Text="{x:Bind Hs}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="5" Text="{x:Bind Wr}" VerticalAlignment="Center" />
+                            <!-- Peak: rango + season -->
+                            <StackPanel Grid.Column="6" Spacing="0" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Image Source="{x:Bind PeakIcon}" Width="24" Height="24" VerticalAlignment="Center" />
+                                    <TextBlock Text="{x:Bind PeakName}" Opacity="0.8" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind PeakSeason}" FontSize="10" Opacity="0.45" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="7" Spacing="0" VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind Rr}" Opacity="0.75" />
+                                <TextBlock Text="{x:Bind RrToUp}" Visibility="{x:Bind RrToUpVisibility}"
+                                           FontSize="10" Opacity="0.45" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="8" Text="{x:Bind Level}" Opacity="0.75" VerticalAlignment="Center" />
+                            <Grid Grid.Column="9" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis"
+                                               ToolTipService.ToolTip="Clic para copiar el nombre"
+                                               Tapped="OnCopyName" />
+                                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                                Visibility="{x:Bind SeenVisibility, Mode=OneWay}">
+                                        <FontIcon Glyph="&#xE7BA;" FontSize="11"
+                                                  Foreground="{ThemeResource SystemControlForegroundAccentBrush}" />
+                                        <TextBlock Text="{x:Bind SeenText, Mode=OneWay}" FontSize="11" Opacity="0.7"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <!-- Marca/nota personal -->
+                                    <StackPanel Orientation="Horizontal" Spacing="6"
+                                                Visibility="{x:Bind NoteVisibility, Mode=OneWay}">
+                                        <Border Background="{x:Bind NoteBrush, Mode=OneWay}"
+                                                CornerRadius="4" Padding="6,1"
+                                                Visibility="{x:Bind NoteChipVisibility, Mode=OneWay}">
+                                            <TextBlock Text="{x:Bind NoteLabel, Mode=OneWay}"
+                                                       FontSize="10" FontWeight="SemiBold" Foreground="White" />
+                                        </Border>
+                                        <TextBlock Text="{x:Bind NoteText, Mode=OneWay}"
+                                                   Visibility="{x:Bind NoteTextVisibility, Mode=OneWay}"
+                                                   FontSize="11" Opacity="0.8" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button Grid.Column="1" Click="OnNotePlayer"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="8" VerticalAlignment="Center"
+                                        ToolTipService.ToolTip="Marcar / nota">
+                                    <FontIcon Glyph="&#xE7C1;" FontSize="14" />
+                                </Button>
+                            </Grid>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- Brillo ambiental que recorre la card en bucle. -->
+            <Rectangle x:Name="CardShimmer" Width="180" HorizontalAlignment="Left"
+                       IsHitTestVisible="False">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0.25">
+                        <GradientStop Color="#00FFFFFF" Offset="0.0" />
+                        <GradientStop Color="#16FFFFFF" Offset="0.5" />
+                        <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+                <Rectangle.RenderTransform>
+                    <TranslateTransform x:Name="CardShimmerT" />
+                </Rectangle.RenderTransform>
+            </Rectangle>
+          </Grid>
+        </Border>
+
+        <!-- Aviso breve al copiar un nombre. -->
+        <InfoBar x:Name="CopyToast" Grid.Row="2" Severity="Success" IsClosable="True"
+                 HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                 Margin="0,0,0,24" MaxWidth="360" />
+    </Grid>
+</Page>

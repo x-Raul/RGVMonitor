@@ -1,0 +1,41 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src-cs", "src-cs", "{D712E369-24A6-4E8B-A7D5-EF5A731EC05B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RGVMonitor.Core", "src-cs\RGVMonitor.Core\RGVMonitor.Core.csproj", "{8363E8EC-7A02-44F9-B91A-6A88CE4E9C0E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RGVMonitor.Core.Tests", "src-cs\RGVMonitor.Core.Tests\RGVMonitor.Core.Tests.csproj", "{D3BFBA18-9A52-4A49-A8C1-8BA8FA6A1920}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RGVMonitor.App", "src-cs\RGVMonitor.App\RGVMonitor.App.csproj", "{BDC46977-B035-4F25-8B63-3BBAE023BB08}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8363E8EC-7A02-44F9-B91A-6A88CE4E9C0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8363E8EC-7A02-44F9-B91A-6A88CE4E9C0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8363E8EC-7A02-44F9-B91A-6A88CE4E9C0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8363E8EC-7A02-44F9-B91A-6A88CE4E9C0E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3BFBA18-9A52-4A49-A8C1-8BA8FA6A1920}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3BFBA18-9A52-4A49-A8C1-8BA8FA6A1920}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3BFBA18-9A52-4A49-A8C1-8BA8FA6A1920}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3BFBA18-9A52-4A49-A8C1-8BA8FA6A1920}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDC46977-B035-4F25-8B63-3BBAE023BB08}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{BDC46977-B035-4F25-8B63-3BBAE023BB08}.Debug|Any CPU.Build.0 = Debug|x64
+		{BDC46977-B035-4F25-8B63-3BBAE023BB08}.Release|Any CPU.ActiveCfg = Release|x64
+		{BDC46977-B035-4F25-8B63-3BBAE023BB08}.Release|Any CPU.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8363E8EC-7A02-44F9-B91A-6A88CE4E9C0E} = {D712E369-24A6-4E8B-A7D5-EF5A731EC05B}
+		{D3BFBA18-9A52-4A49-A8C1-8BA8FA6A1920} = {D712E369-24A6-4E8B-A7D5-EF5A731EC05B}
+		{BDC46977-B035-4F25-8B63-3BBAE023BB08} = {D712E369-24A6-4E8B-A7D5-EF5A731EC05B}
+	EndGlobalSection
+EndGlobal

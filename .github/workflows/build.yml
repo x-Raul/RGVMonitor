@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore
+        run: dotnet restore RGVMonitor.sln
+
+      - name: Test
+        run: dotnet test src-cs/RGVMonitor.Core.Tests/RGVMonitor.Core.Tests.csproj --configuration Release --no-restore
+
+      - name: Build Windows app
+        run: msbuild src-cs/RGVMonitor.App/RGVMonitor.App.csproj -t:Build -p:Configuration=Release -p:Platform=x64 -p:RestoreIgnoreFailedSources=true -v:minimal
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: RGVMonitor-${{ github.sha }}
+          path: src-cs/RGVMonitor.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/**
+          if-no-files-found: error
