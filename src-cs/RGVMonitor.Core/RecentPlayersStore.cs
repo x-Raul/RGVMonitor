@@ -31,7 +31,7 @@ public class RecentPlayersStore
     }
 
     /// Resumen por jugador (último nombre/rango, nº de encuentros, última vez visto).
-    public List<RecentPlayer> Load()
+    public List<RecentPlayer> Load(string? excludeMatchId = null)
     {
         var result = new List<RecentPlayer>();
         if (!File.Exists(_path)) return result;
@@ -58,9 +58,21 @@ public class RecentPlayersStore
                 var latestValidName = "";
                 var latestValidNameEpoch = double.MinValue;
                 var found = false;
+                var encounterCount = 0;
+                var countedMatchIds = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var enc in prop.Value.EnumerateArray())
                 {
                     if (enc.ValueKind != JsonValueKind.Object) continue;
+                    var matchId = Str(enc, "match_id") ?? "";
+                    if (!string.IsNullOrEmpty(excludeMatchId) &&
+                        string.Equals(matchId, excludeMatchId, StringComparison.Ordinal))
+                        continue;
+
+                    // Registros antiguos sin match_id cuentan individualmente. Los que
+                    // sí tienen id pueden estar duplicados por reinicios de la app.
+                    if (matchId.Length == 0 || countedMatchIds.Add(matchId))
+                        encounterCount++;
+
                     var ep = enc.TryGetProperty("epoch", out var e) && e.ValueKind == JsonValueKind.Number
                         ? e.GetDouble() : 0;
                     if (!found || ep >= maxEpoch) { maxEpoch = ep; latest = enc; found = true; }
@@ -86,7 +98,7 @@ public class RecentPlayersStore
                     : DateTimeOffset.MinValue;
 
                 result.Add(new RecentPlayer(
-                    prop.Name, name, rank, prop.Value.GetArrayLength(), lastSeen, ally, agent));
+                    prop.Name, name, rank, encounterCount, lastSeen, ally, agent));
             }
         }
 
@@ -138,6 +150,9 @@ public class RecentPlayersStore
             foreach (var prop in doc.RootElement.EnumerateObject())
             {
                 if (prop.Value.ValueKind != JsonValueKind.Array) continue;
+                JsonElement latest = default;
+                var latestEpoch = double.MinValue;
+                var found = false;
                 foreach (var enc in prop.Value.EnumerateArray())
                 {
                     if (enc.ValueKind != JsonValueKind.Object) continue;
@@ -153,19 +168,35 @@ public class RecentPlayersStore
                         continue;
                     }
 
-                    result.Add(new RecentEncounterOf(prop.Name, new RecentEncounter(
-                        Str(enc, "name") ?? "",
-                        Str(enc, "agent") ?? "—",
-                        Int(enc, "rank"),
-                        Int(enc, "rr"),
-                        DateTimeOffset.FromUnixTimeSeconds((long)maxEpoch),
-                        enc.TryGetProperty("ally", out var al) && al.ValueKind == JsonValueKind.True)));
+                    var epoch = enc.TryGetProperty("epoch", out var encounterEpoch) &&
+                                encounterEpoch.ValueKind == JsonValueKind.Number
+                        ? encounterEpoch.GetDouble()
+                        : 0;
+                    if (!found || epoch >= latestEpoch)
+                    {
+                        latest = enc;
+                        latestEpoch = epoch;
+                        found = true;
+                    }
                 }
+
+                if (!found) continue;
+                result.Add(new RecentEncounterOf(prop.Name, new RecentEncounter(
+                    Str(latest, "name") ?? "",
+                    Str(latest, "agent") ?? "—",
+                    Int(latest, "rank"),
+                    Int(latest, "rr"),
+                    latestEpoch > 0
+                        ? DateTimeOffset.FromUnixTimeSeconds((long)latestEpoch)
+                        : DateTimeOffset.MinValue,
+                    latest.TryGetProperty("ally", out var al) && al.ValueKind == JsonValueKind.True)));
             }
         }
 
         // Aliados primero, como en la tabla de Partida.
         result.Sort((a, b) => b.Encounter.Ally.CompareTo(a.Encounter.Ally));
+        if (result.Count > 10)
+            result.RemoveRange(10, result.Count - 10);
         return result;
     }
 
@@ -298,6 +329,12 @@ public class RecentPlayersStore
                 ["ally"] = p.Ally,
             };
             if (!data.TryGetValue(p.Puuid, out var lst)) { lst = new(); data[p.Puuid] = lst; }
+            if (!string.IsNullOrEmpty(matchId) &&
+                lst.Any(existing => string.Equals(
+                    existing.GetValueOrDefault("match_id")?.ToString(),
+                    matchId,
+                    StringComparison.Ordinal)))
+                continue;
             lst.Add(enc);
         }
 

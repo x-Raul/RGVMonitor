@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -86,6 +87,7 @@ public partial class LastMatchViewModel : ObservableObject
     private RGVMonitorServices? _services;
     private Dictionary<int, string> _rankIcons = new();
     private Dictionary<string, AgentInfo> _agents = new();
+    private readonly SemaphoreSlim _loadLock = new(1, 1);
 
     public LastMatchViewModel(PlayerNotesStore notes) => _notes = notes;
 
@@ -99,8 +101,8 @@ public partial class LastMatchViewModel : ObservableObject
     [RelayCommand]
     public async Task LoadAsync()
     {
+        await _loadLock.WaitAsync();
         IsBusy = true;
-        Players.Clear();
         try
         {
             // Los iconos vienen de valorant-api (no del juego), pero si falla la red
@@ -115,7 +117,16 @@ public partial class LastMatchViewModel : ObservableObject
 
             // Fuente fiable: match-details de la última competitiva (equipos y nombres
             // reales, incluidos los que iban en incógnito).
-            if (_services is not null && await TryLoadFromApiAsync()) return;
+            if (_services is not null)
+            {
+                var apiResult = await TryLoadFromApiAsync();
+                if (apiResult is not null)
+                {
+                    ReplacePlayers(apiResult.Value.Rows);
+                    Status = apiResult.Value.Status;
+                    return;
+                }
+            }
 
             // Respaldo sin conexión: el historial local. Puede traer datos antiguos
             // incompletos (partidas mezcladas o sin equipo), así que se avisa.
@@ -123,35 +134,42 @@ public partial class LastMatchViewModel : ObservableObject
             var last = await Task.Run(store.LoadLastMatch);
             if (last.Count == 0)
             {
+                ReplacePlayers([]);
                 Status = "Todavía no hay ninguna partida registrada.";
                 return;
             }
 
+            var rows = new List<LastMatchRowViewModel>(last.Count);
             foreach (var item in last)
             {
                 var e = item.Encounter;
-                Players.Add(new LastMatchRowViewModel(
+                rows.Add(new LastMatchRowViewModel(
                     item.Puuid, e.Name, e.Agent, e.Rank, e.Rr > 0 ? $"{e.Rr} RR" : "—", e.Ally,
                     _rankIcons.GetValueOrDefault(e.Rank), AgentIconByName(e.Agent),
                     _notes.Get(item.Puuid)));
             }
 
+            ReplacePlayers(rows);
             var when = last[0].Encounter.When.LocalDateTime;
             Status = $"{last.Count} jugadores · {when:dd/MM/yyyy HH:mm} · desde el historial local"
                    + (last.Count != 10 ? " (datos antiguos incompletos)" : "");
         }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _loadLock.Release();
+        }
     }
 
-    /// Carga desde match-details. Devuelve false si no hay partida o falla la API,
+    /// Carga desde match-details. Devuelve null si no hay partida o falla la API,
     /// para que el llamador tire del historial local.
-    private async Task<bool> TryLoadFromApiAsync()
+    private async Task<(List<LastMatchRowViewModel> Rows, string Status)?> TryLoadFromApiAsync()
     {
-        if (_services is null) return false;
+        if (_services is null) return null;
         try
         {
             var (matchId, players) = await _services.MatchNames.GetLastMatchAsync(_services.Auth.Puuid);
-            if (matchId is null || players.Count == 0) return false;
+            if (matchId is null || players.Count == 0) return null;
 
             // match-details llega con gameName/tagLine vacíos, así que los nombres se
             // piden al name-service por puuid. Si alguno falla, tiramos del historial.
@@ -159,6 +177,7 @@ public partial class LastMatchViewModel : ObservableObject
             try { names = await _services.Names.GetNamesAsync(players.Select(p => p.Puuid)); }
             catch { /* seguimos con lo que tengamos */ }
 
+            var rows = new List<LastMatchRowViewModel>(players.Count);
             foreach (var p in players)
             {
                 _agents.TryGetValue(p.AgentId.ToLowerInvariant(), out var agent);
@@ -167,16 +186,24 @@ public partial class LastMatchViewModel : ObservableObject
                 if (name.Length == 0) name = Clean(names.GetValueOrDefault(p.Puuid) ?? "");
                 if (name.Length == 0) name = Clean(_notes.Get(p.Puuid)?.Name ?? "");
 
-                Players.Add(new LastMatchRowViewModel(
+                rows.Add(new LastMatchRowViewModel(
                     p.Puuid, name, agent?.Name ?? "—", p.Tier, "—", p.Ally,
                     _rankIcons.GetValueOrDefault(p.Tier), agent?.Icon, _notes.Get(p.Puuid),
                     $"{p.Kills}/{p.Deaths}/{p.Assists}"));
             }
 
-            Status = $"{players.Count} jugadores · última competitiva";
-            return true;
+            if (rows.Count > 10)
+                rows.RemoveRange(10, rows.Count - 10);
+            return (rows, $"{rows.Count} jugadores · última competitiva");
         }
-        catch { return false; }
+        catch { return null; }
+    }
+
+    private void ReplacePlayers(IEnumerable<LastMatchRowViewModel> rows)
+    {
+        Players.Clear();
+        foreach (var row in rows)
+            Players.Add(row);
     }
 
     /// Normaliza los "no hay nombre" que devuelve Riot ("#", "—", vacío).

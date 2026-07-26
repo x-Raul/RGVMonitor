@@ -98,7 +98,33 @@ public sealed class PlayerHistoryStoresTests
         Assert.Equal("Skye", player.LastAgent);
         Assert.Equal(18, player.Rank);
         Assert.True(player.LastAlly);
+        Assert.Equal(2, player.TimesSeen);
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(200), player.LastSeen);
+    }
+
+    [Fact]
+    public void RecentPlayersLoad_ExcludesCurrentMatch_AndDeduplicatesPreviousMatch()
+    {
+        using var files = new TemporaryFiles();
+        var path = files.Path("stats.json");
+        File.WriteAllText(path, """
+        {
+          "player": [
+            { "name": "Known#LAN", "agent": "Jett", "rank": 12, "epoch": 100, "match_id": "previous", "ally": false },
+            { "name": "Known#LAN", "agent": "Chamber", "rank": 14, "epoch": 150, "match_id": "previous", "ally": true },
+            { "name": "(incógnito)", "agent": "Skye", "rank": 18, "epoch": 200, "match_id": "current", "ally": false }
+          ]
+        }
+        """);
+
+        var player = Assert.Single(new RecentPlayersStore(path).Load(excludeMatchId: "current"));
+
+        Assert.Equal("Known#LAN", player.Name);
+        Assert.Equal("Chamber", player.LastAgent);
+        Assert.Equal(14, player.Rank);
+        Assert.True(player.LastAlly);
+        Assert.Equal(1, player.TimesSeen);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(150), player.LastSeen);
     }
 
     [Fact]
@@ -164,6 +190,54 @@ public sealed class PlayerHistoryStoresTests
     }
 
     [Fact]
+    public void LoadLastMatch_DeduplicatesPlayerWithinSameMatch()
+    {
+        using var files = new TemporaryFiles();
+        var path = files.Path("stats.json");
+        File.WriteAllText(path, """
+        {
+          "player": [
+            { "name": "Old#LAN", "agent": "Jett", "rank": 12, "epoch": 100, "match_id": "same-match", "ranked": true, "ally": true },
+            { "name": "Latest#LAN", "agent": "Chamber", "rank": 14, "epoch": 110, "match_id": "same-match", "ranked": true, "ally": true }
+          ]
+        }
+        """);
+
+        var encounter = Assert.Single(new RecentPlayersStore(path).LoadLastMatch());
+
+        Assert.Equal("Latest#LAN", encounter.Encounter.Name);
+        Assert.Equal("Chamber", encounter.Encounter.Agent);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(110), encounter.Encounter.When);
+    }
+
+    [Fact]
+    public void LoadLastMatch_ReturnsAtMostTenPlayers_WhenMatchHistoryIsCorrupt()
+    {
+        using var files = new TemporaryFiles();
+        var path = files.Path("stats.json");
+        var data = Enumerable.Range(1, 11).ToDictionary(
+            index => $"player-{index}",
+            index => new[]
+            {
+                new
+                {
+                    name = $"Player{index}#LAN",
+                    agent = "Jett",
+                    rank = 12,
+                    epoch = 100,
+                    match_id = "corrupt-match",
+                    ranked = true,
+                    ally = index <= 5,
+                },
+            });
+        File.WriteAllText(path, JsonSerializer.Serialize(data));
+
+        var encounters = new RecentPlayersStore(path).LoadLastMatch();
+
+        Assert.Equal(10, encounters.Count);
+    }
+
+    [Fact]
     public void Record_PersistsRankedFlag_ForEveryEncounter()
     {
         using var files = new TemporaryFiles();
@@ -178,6 +252,21 @@ public sealed class PlayerHistoryStoresTests
         var encounter = document.RootElement.GetProperty("player")[0];
         Assert.False(encounter.GetProperty("ranked").GetBoolean());
         Assert.Empty(store.LoadLastMatch());
+    }
+
+    [Fact]
+    public void Record_DoesNotDuplicatePlayerEncounter_WhenMatchWasAlreadyRecorded()
+    {
+        using var files = new TemporaryFiles();
+        var path = files.Path("stats.json");
+        var store = new RecentPlayersStore(path);
+        var players = new[] { ("player", "Player#LAN", 10, 20, true, "Jett") };
+
+        store.Record(players, matchId: "same-match");
+        store.Record(players, matchId: "same-match");
+
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        Assert.Single(document.RootElement.GetProperty("player").EnumerateArray());
     }
 
     private sealed class TemporaryFiles : IDisposable

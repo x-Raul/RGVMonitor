@@ -234,11 +234,12 @@ public partial class MainViewModel : ObservableObject
         {
             var (list, isRanked, matchId) = await _services.Orchestrator.BuildAsync(state, selfPuuid);
 
-            // Historial previo (para el aviso "ya jugué"). Se lee ANTES de registrar
-            // esta partida, así refleja encuentros anteriores, no el actual.
+            // Historial previo (para el aviso "ya jugué"). Durante una partida se
+            // excluye explícitamente su id, incluso si ya quedó guardada antes de un
+            // reinicio o refresco de la app.
             // Se carga siempre (no solo en partida): también sirve para recuperar el
             // nombre de quien juega en modo incógnito.
-            _recentIndex = _services.Recent.Load()
+            _recentIndex = _services.Recent.Load(state == "INGAME" ? matchId : null)
                 .GroupBy(p => p.Puuid).ToDictionary(g => g.Key, g => g.First());
 
             // Puuids de mi party (para resaltarlos en verde).
