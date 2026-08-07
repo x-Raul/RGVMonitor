@@ -72,6 +72,8 @@ public partial class MainViewModel : ObservableObject
     {
         _dispatcher = dispatcher;
         LastMatchVm = new LastMatchViewModel(_notes);
+        LastMatchVm.HistoryUpdated += () =>
+            _dispatcher.TryEnqueue(async () => await RefreshCurrentAsync());
     }
 
     public Task InitializeAsync()
@@ -193,15 +195,48 @@ public partial class MainViewModel : ObservableObject
                 if (string.IsNullOrEmpty(matchId)) continue;
                 if (_backfilledMatches.Contains(matchId)) return; // ya rellenada
 
-                var names = await services.MatchNames.GetNamesAsync(matchId);
+                // match-details identifica a todos por PUUID, pero puede omitir
+                // gameName/tagLine de quienes iban en incógnito. Para esos PUUID
+                // consultamos además name-service, igual que la pestaña Última partida.
+                var players = await services.MatchNames.GetMatchAsync(matchId, services.Auth.Puuid);
+                if (players.Count == 0) continue;
+
+                var names = players
+                    .Where(p => !PlayerName.IsPending(p.Name) && !p.Name.StartsWith('#'))
+                    .ToDictionary(p => p.Puuid, p => p.Name);
+                var missingPuuids = players
+                    .Where(p => !names.ContainsKey(p.Puuid))
+                    .Select(p => p.Puuid)
+                    .Distinct()
+                    .ToArray();
+                if (missingPuuids.Length > 0)
+                {
+                    var fromNameService = await services.Names.GetNamesAsync(missingPuuids);
+                    foreach (var (puuid, name) in fromNameService)
+                        if (!PlayerName.IsPending(name) && !name.StartsWith('#'))
+                            names[puuid] = name;
+                }
+
                 if (names.Count == 0) continue;
 
-                services.Recent.BackfillNames(names);
+                var filled = services.Recent.BackfillNames(names);
                 _notes.BackfillNames(names);
-                _backfilledMatches.Add(matchId);
+
+                // Una respuesta parcial no cierra el proceso: Riot puede publicar los
+                // nombres en momentos distintos. Solo dejamos de reintentar cuando
+                // todos los participantes quedaron resueltos.
+                var allResolved = players.All(p => names.ContainsKey(p.Puuid));
+                if (allResolved)
+                    _backfilledMatches.Add(matchId);
                 if (_pendingBackfillMatchId == matchId)
                     _pendingBackfillMatchId = null;
-                return;
+
+                // Si la siguiente selección/partida ya estaba dibujada con el índice
+                // anterior, la reconstruimos para que muestre Nombre#TAG (oculto).
+                if (filled > 0)
+                    await RefreshCurrentAsync();
+
+                if (allResolved) return;
             }
             catch { /* reintentamos; si no sale, no es crítico */ }
         }
@@ -214,6 +249,12 @@ public partial class MainViewModel : ObservableObject
         if (_services is null) return;
         var state = await _services.GameState.GetCurrentStateAsync();
         await RefreshAsync(state);
+    }
+
+    public async Task RefreshCurrentAsync()
+    {
+        try { await Refresh(); }
+        catch { /* un fallo puntual al volver a la pestaña no debe cerrar la app */ }
     }
 
     private async Task<int> RefreshAsync(string state)

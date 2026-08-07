@@ -16,11 +16,21 @@ namespace RGVMonitor.App;
 
 public sealed partial class MatchPage : Page
 {
+    private readonly DispatcherTimer _copyToastTimer = new()
+    {
+        Interval = System.TimeSpan.FromSeconds(3)
+    };
+
     public MainViewModel? ViewModel { get; private set; }
 
     public MatchPage()
     {
         InitializeComponent();
+        _copyToastTimer.Tick += (_, _) =>
+        {
+            _copyToastTimer.Stop();
+            CopyToast.IsOpen = false;
+        };
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -41,6 +51,8 @@ public sealed partial class MatchPage : Page
         if (ViewModel is not null)
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _shimmer?.Stop();
+        _copyToastTimer.Stop();
+        CopyToast.IsOpen = false;
     }
 
     private Storyboard? _shimmer;
@@ -134,11 +146,14 @@ public sealed partial class MatchPage : Page
     {
         if ((sender as FrameworkElement)?.DataContext is not PlayerRowViewModel row) return;
         var name = row.StoredName.Length > 0 ? row.StoredName : row.Name;
+        if (string.IsNullOrWhiteSpace(name)) return;
         var data = new DataPackage();
         data.SetText(name);
         Clipboard.SetContent(data);
         CopyToast.Message = $"Copiado: {name}";
         CopyToast.IsOpen = true;
+        _copyToastTimer.Stop();
+        _copyToastTimer.Start();
     }
 
     // Abre el diálogo para marcar/anotar al jugador de la fila.

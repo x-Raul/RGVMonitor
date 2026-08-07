@@ -10,11 +10,21 @@ namespace RGVMonitor.App;
 
 public sealed partial class LastMatchPage : Page
 {
+    private readonly DispatcherTimer _copyToastTimer = new()
+    {
+        Interval = System.TimeSpan.FromSeconds(3)
+    };
+
     public LastMatchViewModel ViewModel { get; private set; } = new(new RGVMonitor.Core.PlayerNotesStore());
 
     public LastMatchPage()
     {
         InitializeComponent();
+        _copyToastTimer.Tick += (_, _) =>
+        {
+            _copyToastTimer.Stop();
+            CopyToast.IsOpen = false;
+        };
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -29,15 +39,25 @@ public sealed partial class LastMatchPage : Page
         await ViewModel.LoadAsync();
     }
 
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        _copyToastTimer.Stop();
+        CopyToast.IsOpen = false;
+    }
+
     private void OnCopyName(object sender, TappedRoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not LastMatchRowViewModel row) return;
         var name = row.StoredName.Length > 0 ? row.StoredName : row.Name;
+        if (string.IsNullOrWhiteSpace(name)) return;
         var data = new DataPackage();
         data.SetText(name);
         Clipboard.SetContent(data);
         CopyToast.Message = $"Copiado: {name}";
         CopyToast.IsOpen = true;
+        _copyToastTimer.Stop();
+        _copyToastTimer.Start();
     }
 
     // Mismo diálogo que en Partida, para marcar a quien se te pasó etiquetar.

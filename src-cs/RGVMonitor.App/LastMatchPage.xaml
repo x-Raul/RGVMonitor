@@ -81,9 +81,19 @@
                                        FontSize="12" VerticalAlignment="Center" />
 
                             <StackPanel Grid.Column="6" Spacing="3" VerticalAlignment="Center">
-                                <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis"
-                                           ToolTipService.ToolTip="Clic para copiar el nombre"
-                                           Tapped="OnCopyName" />
+                                <Grid>
+                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis"
+                                               FontWeight="Bold"
+                                               Foreground="{ThemeResource SystemControlForegroundAccentBrush}"
+                                               Visibility="{x:Bind NormalNameVisibility}"
+                                               ToolTipService.ToolTip="Clic para copiar el nombre"
+                                               Tapped="OnCopyName" />
+                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis"
+                                               FontWeight="Bold" Foreground="#FFF5C83C"
+                                               Visibility="{x:Bind HiddenNameVisibility}"
+                                               ToolTipService.ToolTip="Clic para copiar el nombre"
+                                               Tapped="OnCopyName" />
+                                </Grid>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <Border Background="{x:Bind NoteBrush, Mode=OneWay}"
                                             CornerRadius="4" Padding="6,1"

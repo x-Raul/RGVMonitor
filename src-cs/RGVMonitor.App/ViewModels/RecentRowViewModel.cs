@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using RGVMonitor.Core;
@@ -33,7 +34,10 @@ public class RecentMatchViewModel
     public RecentMatchViewModel(string name, int currentRank, string? currentRankIcon,
                                 List<EncounterRowViewModel> encounters)
     {
-        Name = name;
+        Name = PlayerName.ForDisplay(name);
+        IsHiddenName = PlayerName.HasHiddenSuffix(name) && Name.Length > 0;
+        NormalNameVisibility = IsHiddenName ? Visibility.Collapsed : Visibility.Visible;
+        HiddenNameVisibility = IsHiddenName ? Visibility.Visible : Visibility.Collapsed;
         CurrentRankName = currentRank > 0 ? RankTiers.Name(currentRank) : "—";
         if (!string.IsNullOrEmpty(currentRankIcon))
             CurrentRankIcon = new BitmapImage(new System.Uri(currentRankIcon));
@@ -42,6 +46,9 @@ public class RecentMatchViewModel
     }
 
     public string Name { get; }
+    public bool IsHiddenName { get; }
+    public Visibility NormalNameVisibility { get; }
+    public Visibility HiddenNameVisibility { get; }
     public string CurrentRankName { get; }
     public ImageSource? CurrentRankIcon { get; }
     public string TimesSeen { get; }

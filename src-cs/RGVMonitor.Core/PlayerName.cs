@@ -7,12 +7,27 @@ namespace RGVMonitor.Core;
 /// real de un jugador todavía no está disponible.
 public static class PlayerName
 {
+    private const string HiddenSuffix = " (oculto)";
+
     public static bool IsPending(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return true;
 
         var value = RemoveDiacritics(name.Trim()).ToLowerInvariant();
         return value is "#" or "-" or "—" or "(incognito)" or "(oculto)";
+    }
+
+    public static bool HasHiddenSuffix(string? name) =>
+        !string.IsNullOrWhiteSpace(name)
+        && name.TrimEnd().EndsWith(HiddenSuffix, StringComparison.OrdinalIgnoreCase);
+
+    public static string ForDisplay(string? name)
+    {
+        var value = (name ?? "").Trim();
+        if (HasHiddenSuffix(value))
+            value = value[..^HiddenSuffix.Length].TrimEnd();
+
+        return IsPending(value) ? "" : value;
     }
 
     private static string RemoveDiacritics(string value)

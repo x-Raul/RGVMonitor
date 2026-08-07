@@ -18,10 +18,15 @@ public class NamesService
         using var doc = JsonDocument.Parse(json);
         foreach (var player in doc.RootElement.EnumerateArray())
         {
-            var subject = player.GetProperty("Subject").GetString()!;
+            var subject = player.GetProperty("Subject").GetString();
             var name = player.GetProperty("GameName").GetString();
             var tag = player.GetProperty("TagLine").GetString();
-            result[subject] = $"{name}#{tag}";
+            var riotId = string.IsNullOrWhiteSpace(tag) ? name ?? "" : $"{name}#{tag}";
+            if (string.IsNullOrWhiteSpace(subject) ||
+                PlayerName.IsPending(riotId) ||
+                riotId.StartsWith('#'))
+                continue;
+            result[subject] = riotId;
         }
         return result;
     }

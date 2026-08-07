@@ -48,8 +48,15 @@ public class MatchNamesService
         var matchId = await GetLastMatchIdAsync(selfPuuid);
         if (string.IsNullOrEmpty(matchId)) return (null, new List<LastMatchPlayer>());
 
+        return (matchId, await GetMatchAsync(matchId, selfPuuid));
+    }
+
+    /// Carga una partida terminada concreta. Se usa al salir de una partida para no
+    /// confundirla con otra más reciente mientras Riot termina de publicarla.
+    public async Task<List<LastMatchPlayer>> GetMatchAsync(string matchId, string selfPuuid)
+    {
         var details = await _api.FetchPdAsync($"/match-details/v1/matches/{matchId}");
-        return (matchId, ParsePlayers(details, selfPuuid));
+        return ParsePlayers(details, selfPuuid);
     }
 
     public static List<LastMatchPlayer> ParsePlayers(string matchDetailsJson, string selfPuuid)

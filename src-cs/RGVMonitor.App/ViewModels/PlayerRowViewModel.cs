@@ -23,10 +23,14 @@ public partial class PlayerRowViewModel : ObservableObject
         Puuid = data.Puuid;
         // En incógnito Riot NO da el nombre durante la partida (solo se conoce después,
         // vía match-details). Si ya lo vimos antes, tiramos del historial.
-        StoredName = !data.Incognito ? data.Name : (knownName ?? "");
-        Name = !data.Incognito ? data.Name
-             : StoredName.Length > 0 ? $"{StoredName} (oculto)"
-             : "(incógnito)";
+        // Al terminar la partida la API puede conservar Incognito=true pero ya devolver
+        // el Riot ID real. Siempre preferimos ese nombre válido; el historial es fallback.
+        var apiName = PlayerName.ForDisplay(data.Name);
+        StoredName = apiName.Length > 0 ? apiName : PlayerName.ForDisplay(knownName);
+        Name = StoredName;
+        IsHiddenName = data.Incognito && Name.Length > 0;
+        NormalNameVisibility = IsHiddenName ? Visibility.Collapsed : Visibility.Visible;
+        HiddenNameVisibility = IsHiddenName ? Visibility.Visible : Visibility.Collapsed;
         Team = data.TeamId;
         IsAlly = isAlly;
         RankName = RankTiers.Name(data.Rank.Tier);
@@ -62,7 +66,8 @@ public partial class PlayerRowViewModel : ObservableObject
         // Aviso "ya jugué con/contra este" (no para uno mismo).
         if (seen is not null && !isSelf)
         {
-            SeenText = $"visto {seen.TimesSeen}× · {Relative(seen.LastSeen)} · " +
+            var previousSide = seen.LastAlly ? "aliado" : "enemigo";
+            SeenText = $"visto {seen.TimesSeen}× · {previousSide} · {Relative(seen.LastSeen)} · " +
                        $"llevaba {seen.LastAgent} ({RankTiers.Name(seen.Rank)})";
             SeenVisibility = Visibility.Visible;
         }
@@ -101,6 +106,9 @@ public partial class PlayerRowViewModel : ObservableObject
     public string Puuid { get; }
     public string Name { get; }
     public string StoredName { get; }
+    public bool IsHiddenName { get; }
+    public Visibility NormalNameVisibility { get; }
+    public Visibility HiddenNameVisibility { get; }
     public string Team { get; }
     public bool IsAlly { get; }
     public string RankName { get; }

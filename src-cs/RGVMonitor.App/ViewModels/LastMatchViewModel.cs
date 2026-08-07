@@ -25,8 +25,11 @@ public partial class LastMatchRowViewModel : ObservableObject
         Puuid = puuid;
         Kda = kda;
         // "#" es lo que devuelve el name-service cuando no hay nombre (incógnito).
-        StoredName = name is "#" or "—" ? "" : name;
-        Name = string.IsNullOrWhiteSpace(StoredName) ? "(incógnito)" : StoredName;
+        StoredName = PlayerName.ForDisplay(name);
+        Name = StoredName;
+        IsHiddenName = PlayerName.HasHiddenSuffix(name) && Name.Length > 0;
+        NormalNameVisibility = IsHiddenName ? Visibility.Collapsed : Visibility.Visible;
+        HiddenNameVisibility = IsHiddenName ? Visibility.Visible : Visibility.Collapsed;
         Agent = agent;
         RankName = RankTiers.Name(tier);
         Rr = rr;
@@ -59,6 +62,9 @@ public partial class LastMatchRowViewModel : ObservableObject
     public string Puuid { get; }
     public string Name { get; }
     public string StoredName { get; }
+    public bool IsHiddenName { get; }
+    public Visibility NormalNameVisibility { get; }
+    public Visibility HiddenNameVisibility { get; }
     public string Agent { get; }
     public string RankName { get; }
     public string Rr { get; }
@@ -90,6 +96,8 @@ public partial class LastMatchViewModel : ObservableObject
     private readonly SemaphoreSlim _loadLock = new(1, 1);
 
     public LastMatchViewModel(PlayerNotesStore notes) => _notes = notes;
+
+    public event Action? HistoryUpdated;
 
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private bool _isBusy;
@@ -165,31 +173,43 @@ public partial class LastMatchViewModel : ObservableObject
     /// para que el llamador tire del historial local.
     private async Task<(List<LastMatchRowViewModel> Rows, string Status)?> TryLoadFromApiAsync()
     {
-        if (_services is null) return null;
+        var services = _services;
+        if (services is null) return null;
         try
         {
-            var (matchId, players) = await _services.MatchNames.GetLastMatchAsync(_services.Auth.Puuid);
+            var (matchId, players) = await services.MatchNames.GetLastMatchAsync(services.Auth.Puuid);
             if (matchId is null || players.Count == 0) return null;
 
             // match-details llega con gameName/tagLine vacíos, así que los nombres se
             // piden al name-service por puuid. Si alguno falla, tiramos del historial.
             var names = new Dictionary<string, string>();
-            try { names = await _services.Names.GetNamesAsync(players.Select(p => p.Puuid)); }
+            try { names = await services.Names.GetNamesAsync(players.Select(p => p.Puuid)); }
             catch { /* seguimos con lo que tengamos */ }
 
             var rows = new List<LastMatchRowViewModel>(players.Count);
+            var resolvedNames = new Dictionary<string, string>();
             foreach (var p in players)
             {
                 _agents.TryGetValue(p.AgentId.ToLowerInvariant(), out var agent);
 
                 var name = Clean(p.Name);
                 if (name.Length == 0) name = Clean(names.GetValueOrDefault(p.Puuid) ?? "");
+                if (name.Length > 0)
+                    resolvedNames[p.Puuid] = name;
                 if (name.Length == 0) name = Clean(_notes.Get(p.Puuid)?.Name ?? "");
 
                 rows.Add(new LastMatchRowViewModel(
                     p.Puuid, name, agent?.Name ?? "—", p.Tier, "—", p.Ally,
                     _rankIcons.GetValueOrDefault(p.Tier), agent?.Icon, _notes.Get(p.Puuid),
                     $"{p.Kills}/{p.Deaths}/{p.Assists}"));
+            }
+
+            if (resolvedNames.Count > 0)
+            {
+                var filled = services.Recent.BackfillNames(resolvedNames);
+                _notes.BackfillNames(resolvedNames);
+                if (filled > 0)
+                    HistoryUpdated?.Invoke();
             }
 
             if (rows.Count > 10)
@@ -210,7 +230,7 @@ public partial class LastMatchViewModel : ObservableObject
     private static string Clean(string name)
     {
         name = (name ?? "").Trim();
-        return name is "#" or "—" ? "" : name;
+        return PlayerName.IsPending(name) || name.StartsWith('#') ? "" : name;
     }
 
     /// El historial guarda el NOMBRE del agente, no su id: lo buscamos por nombre.

@@ -29,6 +29,28 @@ public sealed class PlayerHistoryStoresTests
         Assert.False(PlayerName.IsPending(name));
     }
 
+    [Theory]
+    [InlineData("Player#TAG (oculto)", "Player#TAG")]
+    [InlineData("Player#TAG (OCULTO)", "Player#TAG")]
+    [InlineData("  Player#TAG  ", "Player#TAG")]
+    [InlineData("(incognito)", "")]
+    [InlineData("(oculto)", "")]
+    public void PlayerName_ForDisplay_RemovesMarkersAndHiddenSuffix(string name, string expected)
+    {
+        Assert.Equal(expected, PlayerName.ForDisplay(name));
+    }
+
+    [Theory]
+    [InlineData("Player#TAG (oculto)", true)]
+    [InlineData("Player#TAG (OCULTO)  ", true)]
+    [InlineData("Player#TAG", false)]
+    [InlineData("(oculto)", false)]
+    public void PlayerName_HasHiddenSuffix_OnlyForNamedPlayers(string name, bool expected)
+    {
+        var actual = PlayerName.HasHiddenSuffix(name) && PlayerName.ForDisplay(name).Length > 0;
+        Assert.Equal(expected, actual);
+    }
+
     [Fact]
     public void PlayerNotesBackfill_ReplacesPendingName_ButPreservesRealName()
     {
@@ -123,6 +145,34 @@ public sealed class PlayerHistoryStoresTests
         Assert.Equal("Chamber", player.LastAgent);
         Assert.Equal(14, player.Rank);
         Assert.True(player.LastAlly);
+        Assert.Equal(1, player.TimesSeen);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(150), player.LastSeen);
+    }
+
+    [Fact]
+    public void BackfillThenLoad_UsesResolvedPreviousName_WhileExcludingCurrentMatch()
+    {
+        using var files = new TemporaryFiles();
+        var path = files.Path("stats.json");
+        File.WriteAllText(path, """
+        {
+          "player": [
+            { "name": "(incógnito)", "agent": "Chamber", "rank": 14, "epoch": 150, "match_id": "previous", "ally": false },
+            { "name": "(incógnito)", "agent": "Skye", "rank": 18, "epoch": 200, "match_id": "current", "ally": true }
+          ]
+        }
+        """);
+        var store = new RecentPlayersStore(path);
+
+        var filled = store.BackfillNames(
+            new Dictionary<string, string> { ["player"] = "Resolved#LAN" });
+        var player = Assert.Single(store.Load(excludeMatchId: "current"));
+
+        Assert.Equal(2, filled);
+        Assert.Equal("Resolved#LAN", player.Name);
+        Assert.Equal("Chamber", player.LastAgent);
+        Assert.Equal(14, player.Rank);
+        Assert.False(player.LastAlly);
         Assert.Equal(1, player.TimesSeen);
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(150), player.LastSeen);
     }
