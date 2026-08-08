@@ -18,8 +18,9 @@
                     <EntranceThemeTransition FromVerticalOffset="-16" />
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
-            <TextBlock Text="Skins" FontSize="28" FontWeight="Bold" />
-            <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="13" Opacity="0.7" />
+            <TextBlock Text="Skins" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                       Style="{StaticResource PageSubtitleStyle}" />
         </StackPanel>
 
         <Grid Grid.Row="1" Padding="22,0,16,0" ColumnSpacing="10">
@@ -37,10 +38,7 @@
             <TextBlock Grid.Column="5" Text="SHERIFF" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
         </Grid>
 
-        <Border Grid.Row="2"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1" CornerRadius="10">
+        <Border Grid.Row="2" Style="{StaticResource SurfaceCardStyle}">
           <Grid>
             <ListView ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
                       SelectionMode="None" Padding="6">

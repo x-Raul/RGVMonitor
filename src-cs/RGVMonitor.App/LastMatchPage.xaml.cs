@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using RGVMonitor.App.ViewModels;
+using RGVMonitor.Core;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace RGVMonitor.App;
@@ -46,6 +47,9 @@ public sealed partial class LastMatchPage : Page
         CopyToast.IsOpen = false;
     }
 
+    private void OnReloadClicked(object sender, RoutedEventArgs e) =>
+        InteractionSounds.Current.Play(InteractionCue.Loading, 0.72);
+
     private void OnCopyName(object sender, TappedRoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not LastMatchRowViewModel row) return;
@@ -54,6 +58,7 @@ public sealed partial class LastMatchPage : Page
         var data = new DataPackage();
         data.SetText(name);
         Clipboard.SetContent(data);
+        InteractionSounds.Current.Play(InteractionCue.Success, 0.78);
         CopyToast.Message = $"Copiado: {name}";
         CopyToast.IsOpen = true;
         _copyToastTimer.Stop();
@@ -96,8 +101,14 @@ public sealed partial class LastMatchPage : Page
 
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
+        {
             ViewModel.SaveNote(row, radios.SelectedIndex > 0 ? tags[radios.SelectedIndex - 1].Key : "", noteBox.Text);
+            InteractionSounds.Current.Play(InteractionCue.Success, 0.78);
+        }
         else if (result == ContentDialogResult.Secondary)
+        {
             ViewModel.SaveNote(row, "", "");
+            InteractionSounds.Current.Play(InteractionCue.Droplet, 0.72);
+        }
     }
 }

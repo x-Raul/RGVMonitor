@@ -1,11 +1,16 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using RGVMonitor.App.ViewModels;
+using RGVMonitor.Core;
 
 namespace RGVMonitor.App;
 
 public sealed partial class MainWindow : Window
 {
+    private readonly InteractionSounds _sounds = InteractionSounds.Current;
+
     public MainViewModel ViewModel { get; }
 
     public MainWindow()
@@ -18,6 +23,9 @@ public sealed partial class MainWindow : Window
 
         ViewModel = new MainViewModel(DispatcherQueue);
         _ = ViewModel.InitializeAsync();
+        _ = _sounds.PrimeAsync();
+        UpdateSoundItem();
+        Closed += (_, _) => _sounds.Dispose();
 
         ContentFrame.Navigate(typeof(MatchPage), ViewModel);
     }
@@ -40,20 +48,45 @@ public sealed partial class MainWindow : Window
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         var tag = (args.SelectedItemContainer as NavigationViewItem)?.Tag as string;
-        switch (tag)
+        var page = tag switch
         {
-            case "match":
-                ContentFrame.Navigate(typeof(MatchPage), ViewModel);
-                break;
-            case "skins":
-                ContentFrame.Navigate(typeof(SkinsPage), ViewModel);
-                break;
-            case "last":
-                ContentFrame.Navigate(typeof(LastMatchPage), ViewModel);
-                break;
-            case "recent":
-                ContentFrame.Navigate(typeof(RecentPage), ViewModel);
-                break;
+            "match" => typeof(MatchPage),
+            "skins" => typeof(SkinsPage),
+            "last" => typeof(LastMatchPage),
+            "recent" => typeof(RecentPage),
+            _ => null
+        };
+
+        if (page is null || ContentFrame.CurrentSourcePageType == page) return;
+        ContentFrame.Navigate(page, ViewModel);
+        _sounds.Play(InteractionCue.Page, 0.72);
+    }
+
+    private void SoundItem_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        var enable = !_sounds.IsEnabled;
+        if (enable)
+        {
+            _sounds.SetEnabled(true);
+            _sounds.Play(InteractionCue.Toggle);
         }
+        else
+        {
+            _sounds.Play(InteractionCue.Toggle);
+            _sounds.SetEnabled(false);
+        }
+
+        UpdateSoundItem();
+        e.Handled = true;
+    }
+
+    private void UpdateSoundItem()
+    {
+        var enabled = _sounds.IsEnabled;
+        SoundItem.Content = enabled ? "Sonidos activados" : "Sonidos desactivados";
+        ToolTipService.SetToolTip(SoundItem, enabled ? "Desactivar sonidos" : "Activar sonidos");
+        AutomationProperties.SetName(SoundItem,
+            enabled ? "Desactivar sonidos de interacción" : "Activar sonidos de interacción");
+        SoundIcon.Glyph = enabled ? "\uE767" : "\uE74F";
     }
 }

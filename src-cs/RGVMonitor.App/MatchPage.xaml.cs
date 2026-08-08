@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using RGVMonitor.App.ViewModels;
+using RGVMonitor.Core;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
 
@@ -59,6 +60,9 @@ public sealed partial class MatchPage : Page
         if (e.PropertyName == nameof(MainViewModel.AllyPct))
             UpdateWinBar(animate: true);
     }
+
+    private void OnRefreshClicked(object sender, RoutedEventArgs e) =>
+        InteractionSounds.Current.Play(InteractionCue.Loading, 0.72);
 
     // Llena la barra suavemente hasta el % de aliados y la colorea según el favorito.
     private void UpdateWinBar(bool animate)
@@ -119,6 +123,7 @@ public sealed partial class MatchPage : Page
         var data = new DataPackage();
         data.SetText(name);
         Clipboard.SetContent(data);
+        InteractionSounds.Current.Play(InteractionCue.Success, 0.78);
         CopyToast.Message = $"Copiado: {name}";
         CopyToast.IsOpen = true;
         _copyToastTimer.Stop();
@@ -166,10 +171,12 @@ public sealed partial class MatchPage : Page
         {
             var tag = radios.SelectedIndex > 0 ? tags[radios.SelectedIndex - 1].Key : "";
             ViewModel.SaveNote(row, tag, noteBox.Text);
+            InteractionSounds.Current.Play(InteractionCue.Success, 0.78);
         }
         else if (result == ContentDialogResult.Secondary)
         {
             ViewModel.SaveNote(row, "", ""); // borra etiqueta y nota
+            InteractionSounds.Current.Play(InteractionCue.Droplet, 0.72);
         }
     }
 }

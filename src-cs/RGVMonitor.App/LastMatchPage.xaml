@@ -18,18 +18,18 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Spacing="2">
-                <TextBlock Text="Partida anterior" FontSize="28" FontWeight="Bold" />
-                <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="13" Opacity="0.7" />
+                <TextBlock Text="Partida anterior" Style="{StaticResource PageTitleStyle}" />
+                <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                           Style="{StaticResource PageSubtitleStyle}" />
             </StackPanel>
             <ProgressRing Grid.Column="1" IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                           Width="22" Height="22" VerticalAlignment="Center" />
             <Button Grid.Column="2" Content="Recargar" VerticalAlignment="Center"
+                    Click="OnReloadClicked"
                     Command="{x:Bind ViewModel.LoadCommand}" />
         </Grid>
 
-        <Border Grid.Row="1" CornerRadius="10" Padding="4"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+        <Border Grid.Row="1" Style="{StaticResource SurfaceCardStyle}" Padding="4">
             <ListView ItemsSource="{x:Bind ViewModel.Players, Mode=OneWay}"
                       SelectionMode="None">
                 <ListView.ItemContainerStyle>

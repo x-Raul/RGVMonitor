@@ -17,17 +17,25 @@
         </Grid.RowDefinitions>
 
         <!-- Barra de título integrada -->
-        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="40" Padding="14,0" ColumnSpacing="10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <FontIcon Grid.Column="0" Glyph="&#xE7EF;" FontSize="14"
-                      Foreground="{ThemeResource SystemControlForegroundAccentBrush}"
-                      VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="RGVMonitor"
-                       VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" />
-        </Grid>
+        <Border x:Name="AppTitleBar" Grid.Row="0" Height="48" Padding="14,0"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="8"
+                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE7EF;" FontSize="14"
+                              Foreground="{ThemeResource SystemControlForegroundAccentBrush}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Grid.Column="1" Text="RGVMonitor"
+                           VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" />
+            </Grid>
+        </Border>
 
         <!-- Navegación lateral -->
         <muxc:NavigationView x:Name="Nav" Grid.Row="1"
@@ -57,6 +65,16 @@
                     </muxc:NavigationViewItem.Icon>
                 </muxc:NavigationViewItem>
             </muxc:NavigationView.MenuItems>
+
+            <muxc:NavigationView.FooterMenuItems>
+                <muxc:NavigationViewItem x:Name="SoundItem" Content="Sonidos"
+                                         SelectsOnInvoked="False"
+                                         Tapped="SoundItem_Tapped">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon x:Name="SoundIcon" Glyph="&#xE767;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+            </muxc:NavigationView.FooterMenuItems>
 
             <Frame x:Name="ContentFrame">
                 <Frame.ContentTransitions>

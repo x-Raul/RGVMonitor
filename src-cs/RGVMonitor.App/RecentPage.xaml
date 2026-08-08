@@ -18,8 +18,9 @@
                     <EntranceThemeTransition FromVerticalOffset="-16" />
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
-            <TextBlock Text="Jugadores recientes" FontSize="28" FontWeight="Bold" />
-            <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="13" Opacity="0.7" />
+            <TextBlock Text="Jugadores recientes" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                       Style="{StaticResource PageSubtitleStyle}" />
         </StackPanel>
 
         <Grid Grid.Row="1" ColumnSpacing="10">
@@ -33,6 +34,7 @@
                      Text="{x:Bind ViewModel.Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      KeyDown="OnSearchKeyDown" />
             <Button Grid.Column="1" Content="Buscar" Style="{ThemeResource AccentButtonStyle}"
+                    Click="OnSearchClicked"
                     Command="{x:Bind ViewModel.SearchCommand}" />
             <ProgressRing Grid.Column="2" IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                           Width="22" Height="22" VerticalAlignment="Center" />

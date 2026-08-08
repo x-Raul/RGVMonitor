@@ -25,15 +25,17 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Spacing="2">
-                    <TextBlock Text="Partida en vivo" FontSize="28" FontWeight="Bold" />
+                    <TextBlock Text="Partida en vivo" Style="{StaticResource PageTitleStyle}" />
                     <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
-                               FontSize="13" Opacity="0.7" />
+                               Style="{StaticResource PageSubtitleStyle}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12"
                             VerticalAlignment="Center">
                     <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                                   Width="22" Height="22" />
                     <Button Command="{x:Bind ViewModel.RefreshCommand}"
+                            Click="OnRefreshClicked"
+                            AutomationProperties.Name="Actualizar partida"
                             ToolTipService.ToolTip="Refrescar">
                         <FontIcon Glyph="&#xE72C;" FontSize="14" />
                     </Button>
@@ -82,10 +84,7 @@
         </Grid>
 
         <!-- Tarjeta con la lista -->
-        <Border Grid.Row="2"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1" CornerRadius="10">
+        <Border Grid.Row="2" Style="{StaticResource SurfaceCardStyle}">
           <Grid>
             <ListView ItemsSource="{x:Bind ViewModel.Players, Mode=OneWay}"
                       SelectionMode="None" Padding="6">
