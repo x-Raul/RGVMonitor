@@ -136,9 +136,6 @@ public sealed partial class MatchPage : Page
         if (ViewModel is null) return;
         if ((sender as FrameworkElement)?.DataContext is not PlayerRowViewModel row) return;
 
-        if (row.IsAlly)
-            InteractionSounds.Current.Play(InteractionCue.Error, 0.78);
-
         // Selector de etiqueta: índice 0 = sin etiqueta, luego el catálogo.
         var tags = PlayerTags.All;
         var radios = new RadioButtons { Header = "Etiqueta" };

@@ -70,9 +70,6 @@ public sealed partial class LastMatchPage : Page
     {
         if ((sender as FrameworkElement)?.DataContext is not LastMatchRowViewModel row) return;
 
-        if (row.IsAlly)
-            InteractionSounds.Current.Play(InteractionCue.Error, 0.78);
-
         var tags = PlayerTags.All;
         var radios = new RadioButtons { Header = "Etiqueta" };
         radios.Items.Add("Sin etiqueta");

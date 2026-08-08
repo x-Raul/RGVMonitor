@@ -22,10 +22,15 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(ExtractWindowIcon());
 
         ViewModel = new MainViewModel(DispatcherQueue);
+        ViewModel.TaggedAlliesDetected += OnTaggedAlliesDetected;
         _ = ViewModel.InitializeAsync();
         _ = _sounds.PrimeAsync();
         UpdateSoundItem();
-        Closed += (_, _) => _sounds.Dispose();
+        Closed += (_, _) =>
+        {
+            ViewModel.TaggedAlliesDetected -= OnTaggedAlliesDetected;
+            _sounds.Dispose();
+        };
 
         ContentFrame.Navigate(typeof(MatchPage), ViewModel);
     }
@@ -79,6 +84,9 @@ public sealed partial class MainWindow : Window
         UpdateSoundItem();
         e.Handled = true;
     }
+
+    private void OnTaggedAlliesDetected(int count) =>
+        _sounds.Play(InteractionCue.Error, count > 1 ? 0.9 : 0.82);
 
     private void UpdateSoundItem()
     {

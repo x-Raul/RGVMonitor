@@ -33,7 +33,6 @@ public partial class LastMatchRowViewModel : ObservableObject
         Agent = agent;
         RankName = RankTiers.Name(tier);
         Rr = rr;
-        IsAlly = ally;
         AllyText = ally ? "Aliado" : "Enemigo";
         TeamBrush = new SolidColorBrush(ally
             ? Windows.UI.Color.FromArgb(255, 76, 151, 237)
@@ -70,7 +69,6 @@ public partial class LastMatchRowViewModel : ObservableObject
     public string RankName { get; }
     public string Rr { get; }
     public string Kda { get; }
-    public bool IsAlly { get; }
     public string AllyText { get; }
     public Brush TeamBrush { get; }
     public ImageSource? RankIcon { get; }

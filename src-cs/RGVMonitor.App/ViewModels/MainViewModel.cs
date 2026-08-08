@@ -25,6 +25,7 @@ public partial class MainViewModel : ObservableObject
     private Dictionary<string, RecentPlayer> _recentIndex = new();
     private readonly HashSet<string> _recordedMatches = new();
     private readonly HashSet<string> _backfilledMatches = new();
+    private readonly HashSet<string> _warnedTaggedAllies = new();
     private string? _pendingBackfillMatchId;
     private string _loadedState = "";
     private bool _contentLoaded;
@@ -44,6 +45,10 @@ public partial class MainViewModel : ObservableObject
 
     /// Servicios listos tras conectar (los usa la pestaña de Skins).
     public RGVMonitorServices? Services => _services;
+
+    /// Se dispara cuando aparece por primera vez en la selección/partida un aliado
+    /// que ya tenía una de las etiquetas de riesgo guardadas.
+    public event Action<int>? TaggedAlliesDetected;
 
     [ObservableProperty]
     private string _status = "Conectando con VALORANT…";
@@ -300,6 +305,8 @@ public partial class MainViewModel : ObservableObject
             foreach (var p in allies.Concat(enemies))
                 Players.Add(MakeRow(p, selfTeam, selfPuuid, partyPuuids));
 
+            WarnAboutTaggedAllies(state, selfPuuid);
+
             Status = list.Count > 0
                 ? $"{list.Count} jugadores · {Label(state)}"
                 : $"Esperando… ({Label(state)})";
@@ -383,6 +390,28 @@ public partial class MainViewModel : ObservableObject
             : _notes.Get(row.Puuid)?.Name ?? "";
         _notes.Set(row.Puuid, tag, note, name);
         row.ApplyNote(_notes.Get(row.Puuid));
+
+        // Una marca creada durante esta misma partida no es un reencuentro pendiente.
+        if (row.IsAlly && PlayerTags.Find(tag) is not null)
+            _warnedTaggedAllies.Add(row.Puuid);
+    }
+
+    private void WarnAboutTaggedAllies(string state, string selfPuuid)
+    {
+        if (state is not ("PREGAME" or "INGAME"))
+        {
+            _warnedTaggedAllies.Clear();
+            return;
+        }
+
+        var newlyDetected = Players.Count(row =>
+            row.IsAlly &&
+            row.Puuid != selfPuuid &&
+            PlayerTags.Find(row.NoteTag) is not null &&
+            _warnedTaggedAllies.Add(row.Puuid));
+
+        if (newlyDetected > 0)
+            TaggedAlliesDetected?.Invoke(newlyDetected);
     }
 
     /// Nota actual de un jugador (para precargar el diálogo de edición).
