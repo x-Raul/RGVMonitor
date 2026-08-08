@@ -41,7 +41,7 @@
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1" CornerRadius="10">
-          <Grid x:Name="CardShimmerHost" Loaded="OnCardChanged" SizeChanged="OnCardChanged">
+          <Grid>
             <ListView ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
                       SelectionMode="None" Padding="6">
                 <ListView.ItemContainerTransitions>
@@ -104,19 +104,6 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <Rectangle x:Name="CardShimmer" Width="180" HorizontalAlignment="Left"
-                       IsHitTestVisible="False">
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0.25">
-                        <GradientStop Color="#00FFFFFF" Offset="0.0" />
-                        <GradientStop Color="#16FFFFFF" Offset="0.5" />
-                        <GradientStop Color="#00FFFFFF" Offset="1.0" />
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-                <Rectangle.RenderTransform>
-                    <TranslateTransform x:Name="CardShimmerT" />
-                </Rectangle.RenderTransform>
-            </Rectangle>
           </Grid>
         </Border>
     </Grid>

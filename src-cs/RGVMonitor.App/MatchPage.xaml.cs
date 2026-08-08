@@ -50,39 +50,8 @@ public sealed partial class MatchPage : Page
         base.OnNavigatedFrom(e);
         if (ViewModel is not null)
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-        _shimmer?.Stop();
         _copyToastTimer.Stop();
         CopyToast.IsOpen = false;
-    }
-
-    private Storyboard? _shimmer;
-    private double _shimmerWidth;
-
-    // Banda de luz que recorre la card en bucle (movimiento ambiental).
-    private void OnCardChanged(object sender, object e)
-    {
-        var w = CardShimmerHost.ActualWidth;
-        if (w <= 0 || System.Math.Abs(w - _shimmerWidth) < 1) return; // sin cambios reales
-        _shimmerWidth = w;
-
-        _shimmer?.Stop();
-        var band = CardShimmer.Width;
-        var anim = new DoubleAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever };
-        anim.KeyFrames.Add(new DiscreteDoubleKeyFrame
-        { KeyTime = System.TimeSpan.Zero, Value = -band });
-        anim.KeyFrames.Add(new EasingDoubleKeyFrame
-        {
-            KeyTime = System.TimeSpan.FromSeconds(2.0),
-            Value = w + band,
-            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-        });
-        anim.KeyFrames.Add(new DiscreteDoubleKeyFrame
-        { KeyTime = System.TimeSpan.FromSeconds(5.5), Value = w + band }); // pausa antes de repetir
-
-        Storyboard.SetTarget(anim, CardShimmerT);
-        Storyboard.SetTargetProperty(anim, "X");
-        _shimmer = new Storyboard { Children = { anim } };
-        _shimmer.Begin();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

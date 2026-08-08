@@ -1,9 +1,7 @@
-using System;
 using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using RGVMonitor.App.ViewModels;
 
@@ -35,40 +33,6 @@ public sealed partial class SkinsPage : Page
             fe.Scale = Vector3.One;
             fe.Translation = Vector3.Zero;
         }
-    }
-
-    protected override void OnNavigatedFrom(NavigationEventArgs e)
-    {
-        base.OnNavigatedFrom(e);
-        _shimmer?.Stop();
-    }
-
-    private Storyboard? _shimmer;
-    private double _shimmerWidth;
-
-    // Banda de luz que recorre la card en bucle (movimiento ambiental).
-    private void OnCardChanged(object sender, object e)
-    {
-        var w = CardShimmerHost.ActualWidth;
-        if (w <= 0 || Math.Abs(w - _shimmerWidth) < 1) return;
-        _shimmerWidth = w;
-
-        _shimmer?.Stop();
-        var band = CardShimmer.Width;
-        var anim = new DoubleAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever };
-        anim.KeyFrames.Add(new DiscreteDoubleKeyFrame { KeyTime = TimeSpan.Zero, Value = -band });
-        anim.KeyFrames.Add(new EasingDoubleKeyFrame
-        {
-            KeyTime = TimeSpan.FromSeconds(2.0),
-            Value = w + band,
-            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-        });
-        anim.KeyFrames.Add(new DiscreteDoubleKeyFrame { KeyTime = TimeSpan.FromSeconds(5.5), Value = w + band });
-
-        Storyboard.SetTarget(anim, CardShimmerT);
-        Storyboard.SetTargetProperty(anim, "X");
-        _shimmer = new Storyboard { Children = { anim } };
-        _shimmer.Begin();
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
