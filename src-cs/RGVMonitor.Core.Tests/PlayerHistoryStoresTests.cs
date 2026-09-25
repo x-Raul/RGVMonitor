@@ -52,7 +52,7 @@ public sealed class PlayerHistoryStoresTests
     }
 
     [Fact]
-    public void PlayerNotesBackfill_ReplacesPendingName_ButPreservesRealName()
+    public void PlayerNotesBackfill_UsesLatestValidName()
     {
         using var files = new TemporaryFiles();
         var pendingStore = new PlayerNotesStore(files.Path("pending-notes.json"));
@@ -64,11 +64,11 @@ public sealed class PlayerHistoryStoresTests
         namedStore.BackfillNames(new Dictionary<string, string> { ["named"] = "Replacement#LAN" });
 
         Assert.Equal("Resolved#LAN", pendingStore.Get("pending")?.Name);
-        Assert.Equal("Existing#LAN", namedStore.Get("named")?.Name);
+        Assert.Equal("Replacement#LAN", namedStore.Get("named")?.Name);
     }
 
     [Fact]
-    public void RecentPlayersBackfill_ReplacesEveryPendingMarker_ButPreservesRealNames()
+    public void RecentPlayersBackfill_UsesLatestValidNameForEveryEncounter()
     {
         using var files = new TemporaryFiles();
         var path = files.Path("stats.json");
@@ -90,13 +90,13 @@ public sealed class PlayerHistoryStoresTests
         var filled = store.BackfillNames(
             new Dictionary<string, string> { ["player"] = "Resolved#LAN" });
 
-        Assert.Equal(6, filled);
+        Assert.Equal(7, filled);
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         var names = document.RootElement.GetProperty("player").EnumerateArray()
             .Select(encounter => encounter.GetProperty("name").GetString())
             .ToArray();
         Assert.Equal(
-            ["Resolved#LAN", "Resolved#LAN", "Resolved#LAN", "Resolved#LAN", "Resolved#LAN", "Resolved#LAN", "Existing#LAN"],
+            ["Resolved#LAN", "Resolved#LAN", "Resolved#LAN", "Resolved#LAN", "Resolved#LAN", "Resolved#LAN", "Resolved#LAN"],
             names);
     }
 

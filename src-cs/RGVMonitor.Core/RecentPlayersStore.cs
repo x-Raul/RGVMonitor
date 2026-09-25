@@ -262,9 +262,8 @@ public class RecentPlayersStore
     private static bool IsRanked(JsonElement encounter)
         => !encounter.TryGetProperty("ranked", out var ranked) || ranked.ValueKind != JsonValueKind.False;
 
-    /// Rellena los nombres que quedaron pendientes (jugadores en incógnito) con los
-    /// nombres reales, ya conocidos al terminar la partida. Solo toca encuentros
-    /// sin nombre: nunca pisa uno que ya teníamos. Devuelve cuántos rellenó.
+    /// Sincroniza todos los encuentros con el nombre más reciente conocido al terminar
+    /// la partida. Devuelve cuántos nombres cambiaron.
     public int BackfillNames(IReadOnlyDictionary<string, string> names)
     {
         if (names.Count == 0 || !File.Exists(_path)) return 0;
@@ -285,7 +284,7 @@ public class RecentPlayersStore
             foreach (var enc in encounters)
             {
                 var current = enc.GetValueOrDefault("name")?.ToString();
-                if (!PlayerName.IsPending(current)) continue;
+                if (string.Equals(current, name, StringComparison.Ordinal)) continue;
                 enc["name"] = name;
                 filled++;
             }

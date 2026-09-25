@@ -72,8 +72,7 @@ public class PlayerNotesStore
         Save();
     }
 
-    /// Rellena los nombres pendientes (jugadores marcados mientras iban en incógnito)
-    /// con el nombre real, conocido ya al acabar la partida.
+    /// Sincroniza el nombre más reciente conocido al acabar la partida.
     public void BackfillNames(IReadOnlyDictionary<string, string> names)
     {
         EnsureLoaded();
@@ -82,7 +81,7 @@ public class PlayerNotesStore
         {
             if (PlayerName.IsPending(name)) continue;
             if (!_cache.TryGetValue(puuid, out var note)) continue;
-            if (!PlayerName.IsPending(note.Name)) continue;
+            if (string.Equals(note.Name, name, StringComparison.Ordinal)) continue;
             _cache[puuid] = note with { Name = name };
             changed = true;
         }
