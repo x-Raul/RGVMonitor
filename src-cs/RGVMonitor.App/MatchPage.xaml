@@ -67,6 +67,7 @@
                 <ColumnDefinition Width="48" />
                 <ColumnDefinition Width="48" />
                 <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="64" />
                 <ColumnDefinition Width="150" />
                 <ColumnDefinition Width="72" />
                 <ColumnDefinition Width="48" />
@@ -77,10 +78,11 @@
             <TextBlock Grid.Column="3" Text="KD" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
             <TextBlock Grid.Column="4" Text="HS" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
             <TextBlock Grid.Column="5" Text="WR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
-            <TextBlock Grid.Column="6" Text="PEAK" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
-            <TextBlock Grid.Column="7" Text="RR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
-            <TextBlock Grid.Column="8" Text="NIVEL" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
-            <TextBlock Grid.Column="9" Text="JUGADOR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="6" Text="PARTIDAS" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="7" Text="PEAK" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="8" Text="RR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="9" Text="NIVEL" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
+            <TextBlock Grid.Column="10" Text="JUGADOR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
         </Grid>
 
         <!-- Tarjeta con la lista -->
@@ -126,6 +128,7 @@
                                 <ColumnDefinition Width="48" />
                                 <ColumnDefinition Width="48" />
                                 <ColumnDefinition Width="48" />
+                                <ColumnDefinition Width="64" />
                                 <ColumnDefinition Width="150" />
                                 <ColumnDefinition Width="72" />
                                 <ColumnDefinition Width="48" />
@@ -149,21 +152,22 @@
                             <TextBlock Grid.Column="3" Text="{x:Bind Kd}" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="4" Text="{x:Bind Hs}" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="5" Text="{x:Bind Wr}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="6" Text="{x:Bind GamesPlayed}" Opacity="0.75" VerticalAlignment="Center" />
                             <!-- Peak: rango + season -->
-                            <StackPanel Grid.Column="6" Spacing="0" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="7" Spacing="0" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Image Source="{x:Bind PeakIcon}" Width="24" Height="24" VerticalAlignment="Center" />
                                     <TextBlock Text="{x:Bind PeakName}" Opacity="0.8" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <TextBlock Text="{x:Bind PeakSeason}" FontSize="10" Opacity="0.45" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
-                            <StackPanel Grid.Column="7" Spacing="0" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="8" Spacing="0" VerticalAlignment="Center">
                                 <TextBlock Text="{x:Bind Rr}" Opacity="0.75" />
                                 <TextBlock Text="{x:Bind RrToUp}" Visibility="{x:Bind RrToUpVisibility}"
                                            FontSize="10" Opacity="0.45" />
                             </StackPanel>
-                            <TextBlock Grid.Column="8" Text="{x:Bind Level}" Opacity="0.75" VerticalAlignment="Center" />
-                            <Grid Grid.Column="9" VerticalAlignment="Center">
+                            <TextBlock Grid.Column="9" Text="{x:Bind Level}" Opacity="0.75" VerticalAlignment="Center" />
+                            <Grid Grid.Column="10" VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />

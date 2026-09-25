@@ -42,6 +42,7 @@ public partial class PlayerRowViewModel : ObservableObject
         Kd = data.Stats.Kd?.ToString("0.00") ?? "—";
         Hs = data.Stats.HsPercent is int h ? $"{h}%" : "—";
         Wr = data.Rank.WinRatePercent is int w ? $"{w}%" : "—";
+        GamesPlayed = data.Rank.GamesPlayed > 0 ? data.Rank.GamesPlayed.ToString() : "—";
         Level = data.AccountLevel > 0 ? data.AccountLevel.ToString() : "—";
 
         AgentName = agent?.Name ?? "—";
@@ -120,6 +121,7 @@ public partial class PlayerRowViewModel : ObservableObject
     public string Kd { get; }
     public string Hs { get; }
     public string Wr { get; }
+    public string GamesPlayed { get; }
     public string Level { get; }
     public string AgentName { get; }
     public ImageSource? AgentIcon { get; }
