@@ -44,6 +44,15 @@ public partial class PlayerRowViewModel : ObservableObject
         Wr = data.Rank.WinRatePercent is int w ? $"{w}%" : "—";
         GamesPlayed = data.Rank.GamesPlayed > 0 ? data.Rank.GamesPlayed.ToString() : "—";
         Level = data.AccountLevel > 0 ? data.AccountLevel.ToString() : "—";
+        RrCaption = string.IsNullOrEmpty(rrToUp) ? Rr : $"{Rr} · {rrToUp}";
+        var oneWinAway = RankProgress.IsOneWinAway(data.Rank.Tier, data.Rank.Rr);
+        RankUpVisibility = oneWinAway ? Visibility.Visible : Visibility.Collapsed;
+        RrCaptionBrush = (Brush)Application.Current.Resources[
+            oneWinAway ? "RankUpBrush" : "TextFillColorSecondaryBrush"];
+
+        KdBrush = StatBrushes.Kd(data.Stats.Kd);
+        HsBrush = StatBrushes.Hs(data.Stats.HsPercent);
+        WrBrush = StatBrushes.Wr(data.Rank.WinRatePercent);
 
         AgentName = agent?.Name ?? "—";
         if (agent is not null && !string.IsNullOrEmpty(agent.Icon))
@@ -123,6 +132,13 @@ public partial class PlayerRowViewModel : ObservableObject
     public string Wr { get; }
     public string GamesPlayed { get; }
     public string Level { get; }
+    public string RrCaption { get; }
+    /// A una victoria de subir: flecha azul junto al rango y RR en azul.
+    public Visibility RankUpVisibility { get; }
+    public Brush RrCaptionBrush { get; }
+    public Brush KdBrush { get; }
+    public Brush HsBrush { get; }
+    public Brush WrBrush { get; }
     public string AgentName { get; }
     public ImageSource? AgentIcon { get; }
     public ImageSource? RankIcon { get; }

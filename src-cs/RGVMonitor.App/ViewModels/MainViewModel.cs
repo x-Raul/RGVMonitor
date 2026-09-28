@@ -71,7 +71,18 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _selfRankCaption = "";
 
+    /// Tu RR restante cabe en una victoria típica (tarjeta de rango en azul + flecha).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelfRankUpVisibility), nameof(SelfRankNormalVisibility))]
+    private bool _selfIsOneWinAway;
+
+    public Visibility SelfRankUpVisibility => SelfIsOneWinAway ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility SelfRankNormalVisibility => SelfIsOneWinAway ? Visibility.Collapsed : Visibility.Visible;
+
     public ObservableCollection<PlayerRowViewModel> Players { get; } = new();
+
+    /// Media de cada equipo presente (aliados primero). Vacía fuera de partida.
+    public ObservableCollection<TeamSummaryViewModel> TeamSummaries { get; } = new();
 
     public MainViewModel(DispatcherQueue dispatcher)
     {
@@ -129,6 +140,7 @@ public partial class MainViewModel : ObservableObject
             {
                 IsBusy = false;
                 Players.Clear();
+                TeamSummaries.Clear();
                 WinProbVisibility = Visibility.Collapsed;
                 SelfRankVisibility = Visibility.Collapsed;
                 Status = "VALORANT cerrado o no listo. Reintentando…";
@@ -274,6 +286,7 @@ public partial class MainViewModel : ObservableObject
 
         IsBusy = true;
         Players.Clear();
+        TeamSummaries.Clear();
         Status = $"Cargando {Label(state)}…";
 
         var selfPuuid = _services.Auth.Puuid;
@@ -305,6 +318,9 @@ public partial class MainViewModel : ObservableObject
             var enemies = list.Where(p => selfTeam == null || p.TeamId != selfTeam);
             foreach (var p in allies.Concat(enemies))
                 Players.Add(MakeRow(p, selfTeam, selfPuuid, partyPuuids));
+
+            AddTeamSummary(allies, isAlly: true);
+            AddTeamSummary(enemies, isAlly: false);
 
             WarnAboutTaggedAllies(state, selfPuuid);
 
@@ -365,11 +381,20 @@ public partial class MainViewModel : ObservableObject
 
         // RR que le faltan para subir (según su tier). Solo si aplica (ranked, no Radiant).
         string? rrToUp = null;
-        if (RankUpThreshold(p.Rank.Tier) is int th)
-            rrToUp = $"faltan {Math.Max(0, th - p.Rank.Rr)}";
+        if (RankProgress.RrToRankUp(p.Rank.Tier, p.Rank.Rr) is int missing)
+            rrToUp = $"faltan {missing}";
 
         return new PlayerRowViewModel(p, isAlly, agent, rankIcon, isSelf, isParty, peakSeason, seen, note,
                                       peakIcon, rrToUp, KnownName(p.Puuid));
+    }
+
+    // Solo equipos con jugadores (en selección de agente aún no se ven los enemigos).
+    private void AddTeamSummary(IEnumerable<PlayerData> team, bool isAlly)
+    {
+        var avg = TeamAverages.From(team);
+        if (avg.Players == 0) return;
+        var icon = avg.Tier is int tier ? _rankIcons.GetValueOrDefault(tier) : null;
+        TeamSummaries.Add(new TeamSummaryViewModel(avg, isAlly, icon));
     }
 
     /// Último nombre conocido de un jugador (historial primero, luego notas).
@@ -452,30 +477,22 @@ public partial class MainViewModel : ObservableObject
         catch { /* no crítico */ }
     }
 
-    // RR necesarios para subir según el tier (Immortal usa umbrales propios).
-    private static int? RankUpThreshold(int tier) => tier switch
-    {
-        >= 3 and <= 23 => 100,   // Iron 1 … Ascendant 3
-        24 => 90,                 // Immortal 1 → 2
-        25 => 150,                // Immortal 2 → 3
-        26 => 200,                // Immortal 3 → Radiant
-        _ => null                 // Unranked / Radiant: sin "subida" por RR
-    };
-
     private void UpdateSelfRank(List<PlayerData> list, string selfPuuid)
     {
         var self = list.FirstOrDefault(p => p.Puuid == selfPuuid);
-        var threshold = self is null ? null : RankUpThreshold(self.Rank.Tier);
-        if (self is null || threshold is null)
+        var toRankUp = self is null ? null : RankProgress.RrToRankUp(self.Rank.Tier, self.Rank.Rr);
+        if (self is null || toRankUp is null)
         {
             SelfRankVisibility = Visibility.Collapsed;
             return;
         }
 
-        var toRankUp = Math.Max(0, threshold.Value - self.Rank.Rr);
+        SelfIsOneWinAway = toRankUp <= RankProgress.TypicalWinRr;
         SelfRankCaption =
             $"Tu rango: {RGVMonitor.Core.Content.RankTiers.Name(self.Rank.Tier)} · {self.Rank.Rr} RR · " +
-            $"te faltan {toRankUp} para subir";
+            (SelfIsOneWinAway
+                ? $"te faltan {toRankUp}: ¡a una victoria de subir!"
+                : $"te faltan {toRankUp} para subir");
         SelfRankVisibility = Visibility.Visible;
     }
 

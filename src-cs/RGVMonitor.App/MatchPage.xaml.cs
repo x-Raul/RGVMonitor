@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
@@ -42,6 +43,8 @@ public sealed partial class MatchPage : Page
             ViewModel = vm;
             Bindings.Update();
             vm.PropertyChanged += OnViewModelPropertyChanged;
+            vm.Players.CollectionChanged += OnPlayersChanged;
+            UpdateEmptyState();
             UpdateWinBar(animate: false); // refleja el estado actual al entrar
         }
     }
@@ -50,7 +53,10 @@ public sealed partial class MatchPage : Page
     {
         base.OnNavigatedFrom(e);
         if (ViewModel is not null)
+        {
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            ViewModel.Players.CollectionChanged -= OnPlayersChanged;
+        }
         _copyToastTimer.Stop();
         CopyToast.IsOpen = false;
     }
@@ -60,6 +66,11 @@ public sealed partial class MatchPage : Page
         if (e.PropertyName == nameof(MainViewModel.AllyPct))
             UpdateWinBar(animate: true);
     }
+
+    private void OnPlayersChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateEmptyState();
+
+    private void UpdateEmptyState() =>
+        EmptyState.Visibility = ViewModel?.Players.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
 
     private void OnRefreshClicked(object sender, RoutedEventArgs e) =>
         InteractionSounds.Current.Play(InteractionCue.Loading, 0.72);

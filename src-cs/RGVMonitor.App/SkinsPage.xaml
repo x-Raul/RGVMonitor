@@ -5,9 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:RGVMonitor.App.ViewModels">
 
-    <Grid Padding="28,20,28,24" RowSpacing="18">
+    <Grid Style="{StaticResource PageRootStyle}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
@@ -23,86 +22,86 @@
                        Style="{StaticResource PageSubtitleStyle}" />
         </StackPanel>
 
-        <Grid Grid.Row="1" Padding="22,0,16,0" ColumnSpacing="10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="4" />
-                <ColumnDefinition Width="48" />
-                <ColumnDefinition Width="190" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="2" Text="JUGADOR" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
-            <TextBlock Grid.Column="3" Text="VANDAL" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
-            <TextBlock Grid.Column="4" Text="PHANTOM" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
-            <TextBlock Grid.Column="5" Text="SHERIFF" FontSize="11" FontWeight="SemiBold" Opacity="0.5" />
-        </Grid>
+        <Border Grid.Row="1" Style="{StaticResource SurfaceCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-        <Border Grid.Row="2" Style="{StaticResource SurfaceCardStyle}">
-          <Grid>
-            <ListView ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
-                      SelectionMode="None" Padding="6">
-                <ListView.ItemContainerTransitions>
-                    <TransitionCollection>
-                        <AddDeleteThemeTransition />
-                        <ContentThemeTransition />
-                        <EntranceThemeTransition IsStaggeringEnabled="True" />
-                    </TransitionCollection>
-                </ListView.ItemContainerTransitions>
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="Padding" Value="0" />
-                    </Style>
-                </ListView.ItemContainerStyle>
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:SkinRowViewModel">
-                        <Grid Padding="16,8" ColumnSpacing="10" CornerRadius="6"
-                              PointerEntered="OnRowPointerEntered" PointerExited="OnRowPointerExited">
-                            <Grid.ScaleTransition>
-                                <Vector3Transition Duration="0:0:0.16" />
-                            </Grid.ScaleTransition>
-                            <Grid.TranslationTransition>
-                                <Vector3Transition Duration="0:0:0.16" />
-                            </Grid.TranslationTransition>
-                            <Grid.Shadow>
-                                <ThemeShadow />
-                            </Grid.Shadow>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="4" />
-                                <ColumnDefinition Width="48" />
-                                <ColumnDefinition Width="190" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Rectangle Grid.Column="0" Width="4" RadiusX="2" RadiusY="2"
-                                       Fill="{x:Bind TeamBrush}" />
-                            <Border Grid.Column="1" Width="40" Height="40" CornerRadius="8"
-                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                    VerticalAlignment="Center">
-                                <Image Source="{x:Bind AgentIcon}" Stretch="UniformToFill" />
-                            </Border>
-                            <TextBlock Grid.Column="2" Text="{x:Bind Name}" FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="3" Spacing="2" VerticalAlignment="Center">
-                                <Image Source="{x:Bind VandalIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
-                                <TextBlock Text="{x:Bind VandalName}" FontSize="12" Opacity="0.85" TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="4" Spacing="2" VerticalAlignment="Center">
-                                <Image Source="{x:Bind PhantomIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
-                                <TextBlock Text="{x:Bind PhantomName}" FontSize="12" Opacity="0.85" TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="5" Spacing="2" VerticalAlignment="Center">
-                                <Image Source="{x:Bind SheriffIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
-                                <TextBlock Text="{x:Bind SheriffName}" FontSize="12" Opacity="0.85" TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                <Border Grid.Row="0" Style="{StaticResource TableHeaderStyle}">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="4" />
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="190" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="2" Text="JUGADOR" Style="{StaticResource ColumnHeaderTextStyle}" />
+                        <TextBlock Grid.Column="3" Text="VANDAL" Style="{StaticResource ColumnHeaderTextStyle}" />
+                        <TextBlock Grid.Column="4" Text="PHANTOM" Style="{StaticResource ColumnHeaderTextStyle}" />
+                        <TextBlock Grid.Column="5" Text="SHERIFF" Style="{StaticResource ColumnHeaderTextStyle}" />
+                    </Grid>
+                </Border>
 
-          </Grid>
+                <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
+                          SelectionMode="None" Padding="6"
+                          ItemContainerStyle="{StaticResource TableItemContainerStyle}">
+                    <ListView.ItemContainerTransitions>
+                        <TransitionCollection>
+                            <AddDeleteThemeTransition />
+                            <ContentThemeTransition />
+                            <EntranceThemeTransition IsStaggeringEnabled="True" />
+                        </TransitionCollection>
+                    </ListView.ItemContainerTransitions>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SkinRowViewModel">
+                            <Grid Padding="16,8" ColumnSpacing="12" CornerRadius="6"
+                                  PointerEntered="OnRowPointerEntered" PointerExited="OnRowPointerExited">
+                                <Grid.ScaleTransition>
+                                    <Vector3Transition Duration="0:0:0.16" />
+                                </Grid.ScaleTransition>
+                                <Grid.TranslationTransition>
+                                    <Vector3Transition Duration="0:0:0.16" />
+                                </Grid.TranslationTransition>
+                                <Grid.Shadow>
+                                    <ThemeShadow />
+                                </Grid.Shadow>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="4" />
+                                    <ColumnDefinition Width="40" />
+                                    <ColumnDefinition Width="190" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Rectangle Grid.Column="0" Style="{StaticResource TeamStripeStyle}"
+                                           Fill="{x:Bind TeamBrush}" />
+                                <Border Grid.Column="1" Style="{StaticResource AvatarBorderStyle}">
+                                    <Image Source="{x:Bind AgentIcon}" Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Grid.Column="2" Text="{x:Bind Name}" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           ToolTipService.ToolTip="{x:Bind Name}" />
+                                <StackPanel Grid.Column="3" Spacing="2" VerticalAlignment="Center">
+                                    <Image Source="{x:Bind VandalIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{x:Bind VandalName}" Style="{StaticResource CaptionTextStyle}" FontSize="12" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="4" Spacing="2" VerticalAlignment="Center">
+                                    <Image Source="{x:Bind PhantomIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{x:Bind PhantomName}" Style="{StaticResource CaptionTextStyle}" FontSize="12" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="5" Spacing="2" VerticalAlignment="Center">
+                                    <Image Source="{x:Bind SheriffIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{x:Bind SheriffName}" Style="{StaticResource CaptionTextStyle}" FontSize="12" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
         </Border>
     </Grid>
 </Page>

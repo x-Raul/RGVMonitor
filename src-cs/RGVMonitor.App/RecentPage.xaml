@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:RGVMonitor.App.ViewModels">
 
-    <Grid Padding="28,20,28,24" RowSpacing="16">
+    <Grid Style="{StaticResource PageRootStyle}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -25,79 +25,110 @@
 
         <Grid Grid.Row="1" ColumnSpacing="10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MaxWidth="360" />
+                <ColumnDefinition Width="*" MaxWidth="420" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0"
-                     PlaceholderText="Nombre del jugador…"
+                     PlaceholderText="Nombre del jugador (p. ej. Nombre#TAG)…"
+                     AutomationProperties.Name="Nombre del jugador"
                      Text="{x:Bind ViewModel.Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      KeyDown="OnSearchKeyDown" />
-            <Button Grid.Column="1" Content="Buscar" Style="{ThemeResource AccentButtonStyle}"
+            <Button Grid.Column="1" Style="{ThemeResource AccentButtonStyle}"
                     Click="OnSearchClicked"
-                    Command="{x:Bind ViewModel.SearchCommand}" />
+                    Command="{x:Bind ViewModel.SearchCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE721;" FontSize="14" />
+                    <TextBlock Text="Buscar" />
+                </StackPanel>
+            </Button>
             <ProgressRing Grid.Column="2" IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                          Width="22" Height="22" VerticalAlignment="Center" />
+                          Width="20" Height="20" VerticalAlignment="Center" />
         </Grid>
 
-        <ScrollViewer Grid.Row="2">
+        <ScrollViewer Grid.Row="2" Padding="0,0,12,0">
             <ItemsControl ItemsSource="{x:Bind ViewModel.Matches, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:RecentMatchViewModel">
-                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                  Margin="0,0,0,10">
+                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                             <Expander.Transitions>
                                 <TransitionCollection>
                                     <EntranceThemeTransition FromVerticalOffset="20" />
                                 </TransitionCollection>
                             </Expander.Transitions>
                             <Expander.Header>
-                                <Grid ColumnSpacing="12" Padding="0,4">
+                                <Grid ColumnSpacing="16" Padding="0,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="{x:Bind Name}" FontWeight="Bold" FontSize="15"
-                                                   Foreground="{ThemeResource SystemControlForegroundAccentBrush}"
+                                        <TextBlock Text="{x:Bind Name}" FontSize="15"
+                                                   Style="{StaticResource PlayerNameTextStyle}"
                                                    Visibility="{x:Bind NormalNameVisibility}" />
-                                        <TextBlock Text="{x:Bind Name}" FontWeight="Bold" FontSize="15"
-                                                   Foreground="#FFF5C83C"
+                                        <TextBlock Text="{x:Bind Name}" FontSize="15"
+                                                   Style="{StaticResource HiddenPlayerNameTextStyle}"
                                                    Visibility="{x:Bind HiddenNameVisibility}" />
                                     </Grid>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind TimesSeen}" Opacity="0.6"
+                                    <TextBlock Grid.Column="1" Text="{x:Bind TimesSeen}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                VerticalAlignment="Center" />
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
                                                 VerticalAlignment="Center">
-                                        <TextBlock Text="Ahora:" Opacity="0.6" VerticalAlignment="Center" />
-                                        <Image Source="{x:Bind CurrentRankIcon}" Width="24" Height="24" />
+                                        <TextBlock Text="AHORA" Style="{StaticResource ColumnHeaderTextStyle}" />
+                                        <Image Source="{x:Bind CurrentRankIcon}" Width="26" Height="26" />
                                         <TextBlock Text="{x:Bind CurrentRankName}" FontWeight="SemiBold"
                                                    VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Grid>
                             </Expander.Header>
-                            <ItemsControl ItemsSource="{x:Bind Encounters}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:EncounterRowViewModel">
-                                        <Grid Padding="4,6" ColumnSpacing="12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="160" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{x:Bind When}" Opacity="0.8" VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                <Image Source="{x:Bind RankIcon}" Width="22" Height="22" />
-                                                <TextBlock Text="{x:Bind RankName}" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind Agent}" Opacity="0.85" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="3" Text="{x:Bind AllyText}" Opacity="0.6" VerticalAlignment="Center" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <StackPanel Spacing="2">
+                                <Grid Padding="4,0,4,6" ColumnSpacing="12"
+                                      BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                      BorderThickness="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="CUÁNDO" Style="{StaticResource ColumnHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="RANGO" Style="{StaticResource ColumnHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="2" Text="AGENTE" Style="{StaticResource ColumnHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="3" Text="LADO" Style="{StaticResource ColumnHeaderTextStyle}" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{x:Bind Encounters}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:EncounterRowViewModel">
+                                            <Grid Padding="4,6" ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="170" />
+                                                    <ColumnDefinition Width="140" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{x:Bind When}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           VerticalAlignment="Center" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <Image Source="{x:Bind RankIcon}" Width="22" Height="22" />
+                                                    <TextBlock Text="{x:Bind RankName}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{x:Bind Agent}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Text="{x:Bind AllyText}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                         </Expander>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
