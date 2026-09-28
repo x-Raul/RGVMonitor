@@ -109,7 +109,9 @@ public class RecentPlayersStore
     /// Los jugadores de la última partida registrada. Se reconstruye agrupando por
     /// `epoch`: `Record` guarda todos los de una partida con el mismo timestamp.
     /// No necesita conexión con VALORANT (lee solo el archivo).
-    public List<RecentEncounterOf> LoadLastMatch()
+    /// Con `selfPuuid`, solo cuenta partidas de esa cuenta: el historial es compartido
+    /// entre todas las cuentas que se hayan usado en este PC.
+    public List<RecentEncounterOf> LoadLastMatch(string? selfPuuid = null)
     {
         var result = new List<RecentEncounterOf>();
         if (!File.Exists(_path)) return result;
@@ -132,6 +134,7 @@ public class RecentPlayersStore
             foreach (var prop in doc.RootElement.EnumerateObject())
             {
                 if (prop.Value.ValueKind != JsonValueKind.Array) continue;
+                if (!string.IsNullOrEmpty(selfPuuid) && prop.Name != selfPuuid) continue;
                 foreach (var enc in prop.Value.EnumerateArray())
                 {
                     if (enc.ValueKind != JsonValueKind.Object) continue;

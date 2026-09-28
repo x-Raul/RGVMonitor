@@ -221,6 +221,49 @@ public sealed class PlayerHistoryStoresTests
     }
 
     [Fact]
+    public void LoadLastMatch_WithSelf_IgnoresNewerMatchOfAnotherAccount()
+    {
+        using var files = new TemporaryFiles();
+        var path = files.Path("stats.json");
+        File.WriteAllText(path, """
+        {
+          "me": [
+            { "name": "Me#LAN", "agent": "Jett", "rank": 12, "epoch": 100, "match_id": "mine", "ranked": true, "ally": true }
+          ],
+          "mate": [
+            { "name": "Mate#LAN", "agent": "Sage", "rank": 12, "epoch": 100, "match_id": "mine", "ranked": true, "ally": true }
+          ],
+          "other-account": [
+            { "name": "Alt#LAN", "agent": "Skye", "rank": 18, "epoch": 200, "match_id": "alt", "ranked": true, "ally": true }
+          ]
+        }
+        """);
+
+        var encounters = new RecentPlayersStore(path).LoadLastMatch("me");
+
+        Assert.Equal(["mate", "me"], encounters.Select(e => e.Puuid).Order());
+    }
+
+    [Fact]
+    public void LoadLastMatch_WithSelf_ReturnsEmptyWhenAccountHasNoRankedMatch()
+    {
+        using var files = new TemporaryFiles();
+        var path = files.Path("stats.json");
+        File.WriteAllText(path, """
+        {
+          "me": [
+            { "name": "Me#LAN", "agent": "Jett", "rank": 12, "epoch": 300, "match_id": "dm", "ranked": false, "ally": true }
+          ],
+          "other-account": [
+            { "name": "Alt#LAN", "agent": "Skye", "rank": 18, "epoch": 200, "match_id": "alt", "ranked": true, "ally": true }
+          ]
+        }
+        """);
+
+        Assert.Empty(new RecentPlayersStore(path).LoadLastMatch("me"));
+    }
+
+    [Fact]
     public void LoadLastMatch_TreatsLegacyEncounterWithoutRankedFlagAsRanked()
     {
         using var files = new TemporaryFiles();

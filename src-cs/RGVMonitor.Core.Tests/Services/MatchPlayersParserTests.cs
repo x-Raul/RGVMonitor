@@ -38,6 +38,19 @@ public class MatchPlayersParserTests
         Assert.True(players[1].Incognito);
     }
 
+    // coregame no trae IsRanked/QueueID en la raíz: vienen dentro de MatchmakingData.
+    [Theory]
+    [InlineData("""{"MatchmakingData":{"QueueID":"competitive","IsRanked":true},"Players":[]}""", true)]
+    [InlineData("""{"MatchmakingData":{"QueueID":"competitive"},"Players":[]}""", true)]
+    [InlineData("""{"MatchmakingData":{"QueueID":"unrated","IsRanked":false},"Players":[]}""", false)]
+    [InlineData("""{"MatchmakingData":null,"Players":[]}""", false)]
+    [InlineData("""{"QueueID":"competitive","IsRanked":true}""", true)]
+    [InlineData("""{"QueueID":"swiftplay"}""", false)]
+    public void IsRanked_ReadsRootOrMatchmakingData(string json, bool expected)
+    {
+        Assert.Equal(expected, MatchPlayersParser.IsRanked(json));
+    }
+
     [Fact]
     public void ParsePregame_ReturnsAllyTeamPlayers()
     {

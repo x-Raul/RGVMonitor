@@ -109,6 +109,7 @@ public partial class MainViewModel : ObservableObject
                 await EnsureContentAsync(services);
 
                 _services = services;
+                new LastAccountStore().Save(services.Auth.Puuid);
                 _loadedState = "";
                 SkinsVm.UpdateServices(services);
                 services.Presence.GameStateChanged += OnGameStateChanged;

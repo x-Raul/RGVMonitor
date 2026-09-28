@@ -138,8 +138,11 @@ public partial class LastMatchViewModel : ObservableObject
 
             // Respaldo sin conexión: el historial local. Puede traer datos antiguos
             // incompletos (partidas mezcladas o sin equipo), así que se avisa.
+            // El historial es compartido entre cuentas: filtramos por la conectada o,
+            // con VALORANT cerrado, por la última que se conectó.
             var store = _services?.Recent ?? new RecentPlayersStore();
-            var last = await Task.Run(store.LoadLastMatch);
+            var self = _services?.Auth.Puuid ?? new LastAccountStore().Load();
+            var last = await Task.Run(() => store.LoadLastMatch(self));
             if (last.Count == 0)
             {
                 ReplacePlayers([]);

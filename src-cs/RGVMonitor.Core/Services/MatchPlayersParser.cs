@@ -11,8 +11,9 @@ public static class MatchPlayersParser
         return ReadPlayers(doc.RootElement.GetProperty("Players"));
     }
 
-    /// Devuelve true si la partida es ranked. En coregame la raíz trae un booleano
-    /// "IsRanked" (lo fiable) y/o una cola "QueueID" == "competitive".
+    /// Devuelve true si la partida es ranked: un booleano "IsRanked" (lo fiable) y/o
+    /// una cola "QueueID" == "competitive". En pregame van en la raíz; en coregame
+    /// van dentro de "MatchmakingData".
     /// (Ojo: "ModeID" es la ruta del MODO —Bomb, Deathmatch…—, no la cola.)
     public static bool IsRanked(string json)
     {
@@ -22,16 +23,23 @@ public static class MatchPlayersParser
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return false;
 
-            if (root.TryGetProperty("IsRanked", out var ir) &&
-                (ir.ValueKind == JsonValueKind.True || ir.ValueKind == JsonValueKind.False))
-                return ir.GetBoolean();
-
-            if (root.TryGetProperty("QueueID", out var q) && q.ValueKind == JsonValueKind.String)
-                return string.Equals(q.GetString(), "competitive", StringComparison.OrdinalIgnoreCase);
-
-            return false;
+            if (root.TryGetProperty("MatchmakingData", out var mm) && mm.ValueKind == JsonValueKind.Object)
+                return IsRankedIn(mm);
+            return IsRankedIn(root);
         }
         catch { return false; }
+    }
+
+    private static bool IsRankedIn(JsonElement el)
+    {
+        if (el.TryGetProperty("IsRanked", out var ir) &&
+            (ir.ValueKind == JsonValueKind.True || ir.ValueKind == JsonValueKind.False))
+            return ir.GetBoolean();
+
+        if (el.TryGetProperty("QueueID", out var q) && q.ValueKind == JsonValueKind.String)
+            return string.Equals(q.GetString(), "competitive", StringComparison.OrdinalIgnoreCase);
+
+        return false;
     }
 
     public static List<MatchPlayer> ParsePregame(string json)
