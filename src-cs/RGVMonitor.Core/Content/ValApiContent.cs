@@ -8,6 +8,9 @@ public record AgentInfo(string Name, string Icon);
 /// Nombre e imagen (URL) de una skin.
 public record SkinInfo(string Name, string Icon);
 
+/// Nombre e imagen de fondo (URL) de un mapa.
+public record MapInfo(string Name, string Splash);
+
 /// Acceso a valorant-api.com (público, sin auth) para nombres de skins.
 public class ValApiContent
 {
@@ -21,6 +24,33 @@ public class ValApiContent
     private Dictionary<string, AgentInfo>? _agents;  // agentUuid(lower) -> info
     private Dictionary<int, string>? _rankIcons;     // tier -> smallIcon (URL)
     private Dictionary<string, string>? _seasons;    // actUuid(lower) -> "EPISODE X ACT Y"
+    private Dictionary<string, MapInfo>? _maps;      // mapUrl(lower), p.ej. "/game/maps/ascent/ascent" -> info
+
+    /// Mapas indexados por `mapUrl`, que es lo que match-details trae como `mapId`.
+    public async Task<Dictionary<string, MapInfo>> GetMapsAsync()
+    {
+        if (_maps is not null) return _maps;
+
+        var json = await Http.GetStringAsync("https://valorant-api.com/v1/maps");
+        var map = new Dictionary<string, MapInfo>();
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.TryGetProperty("data", out var data) &&
+            data.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var m in data.EnumerateArray())
+            {
+                var url = m.TryGetProperty("mapUrl", out var u) && u.ValueKind == JsonValueKind.String
+                    ? u.GetString() : null;
+                var name = m.TryGetProperty("displayName", out var n) ? n.GetString() : null;
+                var splash = m.TryGetProperty("splash", out var sp) && sp.ValueKind == JsonValueKind.String
+                    ? sp.GetString() : null;
+                if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(name))
+                    map[url.ToLowerInvariant()] = new MapInfo(name, splash ?? "");
+            }
+        }
+        _maps = map;
+        return map;
+    }
 
     public async Task<Dictionary<string, string>> GetSeasonsAsync()
     {
