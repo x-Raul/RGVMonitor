@@ -80,6 +80,23 @@ public partial class PlayerRowViewModel : ObservableObject
             SeenText = $"visto {seen.TimesSeen}× · {previousSide} · {Relative(seen.LastSeen)} · " +
                        $"llevaba {seen.LastAgent} ({RankTiers.Name(seen.Rank)})";
             SeenVisibility = Visibility.Visible;
+
+            SeenCount = $"{seen.TimesSeen}×";
+            SeenSide = previousSide;
+            SeenSideBrush = (Brush)Application.Current.Resources[seen.LastAlly ? "AllyBrush" : "EnemyBrush"];
+            SeenWhen = Relative(seen.LastSeen);
+            SeenDetail = $"llevaba {seen.LastAgent} ({RankTiers.Name(seen.Rank)})";
+
+            // Te tocó hace menos de 48 h: el chip de tiempo se pinta en naranja.
+            var recent = seen.LastSeen != DateTimeOffset.MinValue
+                         && DateTimeOffset.Now - seen.LastSeen < TimeSpan.FromHours(48);
+            SeenWhenForeground = (Brush)Application.Current.Resources[
+                recent ? "RecentSeenBrush" : "TextFillColorSecondaryBrush"];
+            SeenWhenBackground = (Brush)Application.Current.Resources[
+                recent ? "RecentSeenFillBrush" : "SubtleFillColorSecondaryBrush"];
+            SeenWhenBorder = recent
+                ? (Brush)Application.Current.Resources["RecentSeenBrush"]
+                : new SolidColorBrush(Colors.Transparent);
         }
 
         ApplyNote(note);
@@ -149,6 +166,15 @@ public partial class PlayerRowViewModel : ObservableObject
     // OneTime el aviso "ya jugué" se quedaba en blanco.
     [ObservableProperty] private string _seenText = "";
     [ObservableProperty] private Visibility _seenVisibility = Visibility.Collapsed;
+    // Piezas del aviso "ya jugué" para pintarlo como chips.
+    public string SeenCount { get; } = "";
+    public string SeenSide { get; } = "";
+    public Brush? SeenSideBrush { get; }
+    public string SeenWhen { get; } = "";
+    public string SeenDetail { get; } = "";
+    public Brush? SeenWhenForeground { get; }
+    public Brush? SeenWhenBackground { get; }
+    public Brush? SeenWhenBorder { get; }
 
     // Marca/nota personal (mutable: se actualiza al editar sin recargar la partida).
     public string NoteTag { get; private set; } = "";

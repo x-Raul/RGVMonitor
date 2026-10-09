@@ -10,7 +10,8 @@ public sealed class TeamSummaryViewModel
 {
     public TeamSummaryViewModel(TeamAverages avg, bool isAlly, string? rankIcon)
     {
-        Title = $"{(isAlly ? "ALIADOS" : "ENEMIGOS")} · {avg.Players}";
+        Title = isAlly ? "Aliados" : "Enemigos";
+        PlayerCount = $"{avg.Players} jug.";
         TeamBrush = (Brush)Application.Current.Resources[isAlly ? "AllyBrush" : "EnemyBrush"];
         RankName = avg.Tier is int tier ? RankTiers.Name(tier) : "Sin rango";
         if (!string.IsNullOrEmpty(rankIcon))
@@ -25,6 +26,7 @@ public sealed class TeamSummaryViewModel
     }
 
     public string Title { get; }
+    public string PlayerCount { get; }
     public Brush TeamBrush { get; }
     public string RankName { get; }
     public ImageSource? RankIcon { get; }

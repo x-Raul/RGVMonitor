@@ -20,6 +20,12 @@
             <!-- "A una victoria de subir" (distinto del azul de aliado, más cian). -->
             <SolidColorBrush x:Key="RankUpBrush" Color="#FF3DB8FF" />
             <SolidColorBrush x:Key="RankUpFillBrush" Color="#263DB8FF" />
+            <!-- "Ya te tocó" en las últimas 48 h (naranja, distinto del amarillo de "Tú"). -->
+            <SolidColorBrush x:Key="RecentSeenBrush" Color="#FFFF8A3D" />
+            <SolidColorBrush x:Key="RecentSeenFillBrush" Color="#2EFF8A3D" />
+            <!-- Insignias de la partida anterior: MVP (oro) y MVP del otro equipo (plata). -->
+            <SolidColorBrush x:Key="MvpBrush" Color="#FFE3B341" />
+            <SolidColorBrush x:Key="TeamMvpBrush" Color="#FF9AA4B2" />
 
             <Style x:Key="PageRootStyle" TargetType="Grid">
                 <Setter Property="Padding" Value="28,20,28,24" />
@@ -52,6 +58,13 @@
                 <Setter Property="Padding" Value="22,12,22,10" />
                 <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
                 <Setter Property="BorderThickness" Value="0,0,0,1" />
+            </Style>
+
+            <!-- Pie de tabla (leyenda): misma alineación que la cabecera, línea arriba. -->
+            <Style x:Key="TableFooterStyle" TargetType="Border">
+                <Setter Property="Padding" Value="22,10,22,12" />
+                <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="0,1,0,0" />
             </Style>
 
             <Style x:Key="ColumnHeaderTextStyle" TargetType="TextBlock">
@@ -115,6 +128,14 @@
                 <Setter Property="Padding" Value="6,1" />
             </Style>
 
+            <!-- Chip pequeño del aviso "ya jugué" (fondo/borde se fijan por fila). -->
+            <Style x:Key="SeenChipStyle" TargetType="Border">
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="6,1,7,2" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
             <!-- Botón de icono sin fondo (se ilumina al pasar el ratón). -->
             <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
                 <Setter Property="Background" Value="Transparent" />
@@ -131,6 +152,22 @@
             </Style>
 
             <!-- Leyenda: punto de color + texto. -->
+            <!-- Etiqueta de tarjeta de resumen: sentence case, peso medio (no mayúsculas). -->
+            <Style x:Key="CardLabelTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!-- Cifra grande de las tarjetas de resumen. -->
+            <Style x:Key="SummaryFigureTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="CharacterSpacing" Value="-20" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
             <Style x:Key="LegendDotStyle" TargetType="Ellipse">
                 <Setter Property="Width" Value="8" />
                 <Setter Property="Height" Value="8" />

@@ -63,7 +63,18 @@ public partial class MainViewModel : ObservableObject
     private double _allyPct;
 
     [ObservableProperty]
-    private string _winProbCaption = "";
+    private string _winProbAlly = "";
+
+    [ObservableProperty]
+    private string _winProbEnemy = "";
+
+    /// Menos de un 25 % de victoria: la tarjeta se tiñe de rojo con un aviso.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WinProbNormalVisibility), nameof(WinProbLowVisibility))]
+    private bool _winProbLow;
+
+    public Visibility WinProbNormalVisibility => WinProbLow ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility WinProbLowVisibility => WinProbLow ? Visibility.Visible : Visibility.Collapsed;
 
     [ObservableProperty]
     private Visibility _selfRankVisibility = Visibility.Collapsed;
@@ -512,7 +523,9 @@ public partial class MainViewModel : ObservableObject
         }
 
         AllyPct = wp.Value.Ally;
-        WinProbCaption = $"Aliados {wp.Value.Ally:0}%   ·   Enemigos {wp.Value.Enemy:0}%";
+        WinProbAlly = $"{wp.Value.Ally:0}%";
+        WinProbEnemy = $"{wp.Value.Enemy:0}%";
+        WinProbLow = wp.Value.Ally < 25;
         WinProbVisibility = Visibility.Visible;
     }
 
