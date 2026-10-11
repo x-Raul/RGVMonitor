@@ -239,7 +239,8 @@ public partial class LastMatchViewModel : ObservableObject
             EnemyHeader = "Rivales";
             var when = last[0].Encounter.When.LocalDateTime;
             Status = $"{last.Count} jugadores · {when:dd/MM/yyyy HH:mm} · desde el historial local, sin estadísticas"
-                   + (last.Count != 10 ? " (datos antiguos incompletos)" : "");
+                   + (last.Count != 10 ? " (datos antiguos incompletos)" : "")
+                   + (_apiFailure.Length > 0 ? $" · sin marcador: {_apiFailure}" : "");
         }
         finally
         {
@@ -253,12 +254,13 @@ public partial class LastMatchViewModel : ObservableObject
     private async Task<bool> TryLoadFromApiAsync()
     {
         var services = _services;
+        _apiFailure = "";
         if (services is null) return false;
         try
         {
             var selfPuuid = services.Auth.Puuid;
             var result = await services.MatchNames.GetLastMatchResultAsync(selfPuuid);
-            if (result is null) return false;
+            if (result is null) { _apiFailure = "Riot no devuelve partidas competitivas recientes"; return false; }
             var players = result.Players;
 
             // match-details llega con gameName/tagLine vacíos, así que los nombres se
@@ -299,8 +301,15 @@ public partial class LastMatchViewModel : ObservableObject
             Status = $"{rows.Count} jugadores · última competitiva";
             return true;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            _apiFailure = ex.Message;
+            return false;
+        }
     }
+
+    /// Motivo por el que no se pudo cargar desde la API (se muestra en el estado).
+    private string _apiFailure = "";
 
     /// MVP de la partida = mejor puntuación; "MVP equipo" = mejor del otro equipo.
     private static void MarkMvps(List<LastMatchRowViewModel> rows)

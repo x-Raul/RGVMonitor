@@ -39,31 +39,74 @@ public class MatchNamesService
     /// Última entrada de competitiveupdates: id de partida y cómo te quedó el RR.
     private async Task<(string? MatchId, int? RrEarned, int? RrAfter, int? TierAfter)> GetLastUpdateAsync(string selfPuuid)
     {
+        var updates = await GetRecentUpdatesAsync(selfPuuid, 1);
+        return updates.Count > 0 ? updates[0] : (null, null, null, null);
+    }
+
+    /// Últimas entradas de competitiveupdates (la más reciente primero).
+    private async Task<List<(string? MatchId, int? RrEarned, int? RrAfter, int? TierAfter)>> GetRecentUpdatesAsync(
+        string selfPuuid, int count)
+    {
         var updates = await _api.FetchPdAsync(
-            $"/mmr/v1/players/{selfPuuid}/competitiveupdates?startIndex=0&endIndex=1&queue=competitive");
+            $"/mmr/v1/players/{selfPuuid}/competitiveupdates?startIndex=0&endIndex={count}&queue=competitive");
 
+        var result = new List<(string?, int?, int?, int?)>();
         using var doc = JsonDocument.Parse(updates);
+        if (ApiError(doc.RootElement) is string error)
+            throw new InvalidOperationException($"competitiveupdates: {error}");
         if (!doc.RootElement.TryGetProperty("Matches", out var matches) ||
-            matches.ValueKind != JsonValueKind.Array || matches.GetArrayLength() == 0)
-            return (null, null, null, null);
+            matches.ValueKind != JsonValueKind.Array)
+            return result;
 
-        var m = matches[0];
-        return (Str(m, "MatchID"), OptInt(m, "RankedRatingEarned"),
-                OptInt(m, "RankedRatingAfterUpdate"), OptInt(m, "TierAfterUpdate"));
+        foreach (var m in matches.EnumerateArray())
+        {
+            if (string.IsNullOrEmpty(Str(m, "MatchID"))) continue;
+            result.Add((Str(m, "MatchID"), OptInt(m, "RankedRatingEarned"),
+                        OptInt(m, "RankedRatingAfterUpdate"), OptInt(m, "TierAfterUpdate")));
+        }
+        return result;
+    }
+
+    /// "errorCode (httpStatus): message" si la respuesta de Riot es un error; null si no.
+    private static string? ApiError(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("errorCode", out var code))
+            return null;
+        var status = root.TryGetProperty("httpStatus", out var hs) ? $" ({hs})" : "";
+        var message = root.TryGetProperty("message", out var msg) ? $": {msg.GetString()}" : "";
+        return $"{code.GetString()}{status}{message}";
     }
 
     /// Como GetLastMatchAsync pero con todo lo necesario para la pestaña
-    /// "Partida anterior" (marcador, mapa, RR ganado). Null si no hay partida.
+    /// "Partida anterior" (marcador, mapa, RR ganado). Null si no hay ninguna competitiva.
+    /// Si los detalles de la más reciente aún no se pueden leer (Riot tarda en publicarlos
+    /// o falla), prueba con las anteriores; si ninguna sirve, lanza con el motivo.
     public async Task<LastMatchResult?> GetLastMatchResultAsync(string selfPuuid)
     {
-        var (matchId, rrEarned, rrAfter, tierAfter) = await GetLastUpdateAsync(selfPuuid);
-        if (string.IsNullOrEmpty(matchId)) return null;
+        var updates = await GetRecentUpdatesAsync(selfPuuid, 3);
+        if (updates.Count == 0) return null;
 
-        var details = await _api.FetchPdAsync($"/match-details/v1/matches/{matchId}");
-        var players = ParsePlayers(details, selfPuuid);
-        if (players.Count == 0) return null;
-        return new LastMatchResult(matchId, ParseInfo(details, selfPuuid), players,
-                                   rrEarned, rrAfter, tierAfter);
+        var failure = "";
+        foreach (var (matchId, rrEarned, rrAfter, tierAfter) in updates)
+        {
+            var details = await _api.FetchPdAsync($"/match-details/v1/matches/{matchId}");
+            var players = ParsePlayers(details, selfPuuid);
+            if (players.Count > 0)
+                return new LastMatchResult(matchId!, ParseInfo(details, selfPuuid), players,
+                                           rrEarned, rrAfter, tierAfter);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(details);
+                failure = ApiError(doc.RootElement) ?? "sin jugadores en match-details";
+            }
+            catch (JsonException)
+            {
+                failure = "respuesta de match-details no válida";
+            }
+        }
+
+        throw new InvalidOperationException($"match-details: {failure}");
     }
 
     /// puuid → "Nombre#TAG" de todos los jugadores de esa partida.
