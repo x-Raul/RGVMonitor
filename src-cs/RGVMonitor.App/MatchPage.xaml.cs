@@ -75,21 +75,15 @@ public sealed partial class MatchPage : Page
     private void OnRefreshClicked(object sender, RoutedEventArgs e) =>
         InteractionSounds.Current.Play(InteractionCue.Loading, 0.72);
 
-    // Llena la barra suavemente hasta el % de aliados y la colorea según el favorito.
+    // Barra enfrentada: la parte azul (aliados) crece o encoge hasta su % y el resto queda en rojo.
     private void UpdateWinBar(bool animate)
     {
         if (ViewModel is null) return;
-        var target = ViewModel.AllyPct;
-
-        // Verde si los aliados van por delante, rojo si no, ámbar si está parejo.
-        var color = target >= 55 ? Color.FromArgb(255, 70, 200, 110)
-                  : target <= 45 ? Color.FromArgb(255, 238, 77, 77)
-                  : Color.FromArgb(255, 245, 200, 60);
-        WinBar.Foreground = new SolidColorBrush(color);
+        var target = Math.Clamp(ViewModel.AllyPct / 100.0, 0, 1);
 
         if (!animate)
         {
-            WinBar.Value = target;
+            WinBarScale.ScaleX = target;
             return;
         }
 
@@ -97,11 +91,10 @@ public sealed partial class MatchPage : Page
         {
             To = target,
             Duration = new Duration(System.TimeSpan.FromMilliseconds(550)),
-            EnableDependentAnimation = true,
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
-        Storyboard.SetTarget(anim, WinBar);
-        Storyboard.SetTargetProperty(anim, "Value");
+        Storyboard.SetTarget(anim, WinBarScale);
+        Storyboard.SetTargetProperty(anim, "ScaleX");
         new Storyboard { Children = { anim } }.Begin();
     }
 

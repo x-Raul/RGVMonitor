@@ -11,15 +11,20 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="2">
+        <!-- Encabezado en una línea (como en Partida en vivo) -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
             <StackPanel.ChildrenTransitions>
                 <TransitionCollection>
                     <EntranceThemeTransition FromVerticalOffset="-16" />
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
-            <TextBlock Text="Skins" Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
-                       Style="{StaticResource PageSubtitleStyle}" />
+            <TextBlock Text="Skins" FontSize="22" FontWeight="Bold" CharacterSpacing="-10"
+                       VerticalAlignment="Center" />
+            <Border VerticalAlignment="Center" Padding="10,3" CornerRadius="10"
+                    Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Border>
         </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource SurfaceCardStyle}">
@@ -58,7 +63,7 @@
                     </ListView.ItemContainerTransitions>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:SkinRowViewModel">
-                            <Grid Padding="16,8" ColumnSpacing="12" CornerRadius="6"
+                            <Grid Padding="14,4" ColumnSpacing="12" CornerRadius="6"
                                   PointerEntered="OnRowPointerEntered" PointerExited="OnRowPointerExited">
                                 <Grid.ScaleTransition>
                                     <Vector3Transition Duration="0:0:0.16" />
@@ -85,17 +90,17 @@
                                 <TextBlock Grid.Column="2" Text="{x:Bind Name}" FontWeight="SemiBold"
                                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                            ToolTipService.ToolTip="{x:Bind Name}" />
-                                <StackPanel Grid.Column="3" Spacing="2" VerticalAlignment="Center">
-                                    <Image Source="{x:Bind VandalIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
-                                    <TextBlock Text="{x:Bind VandalName}" Style="{StaticResource CaptionTextStyle}" FontSize="12" />
+                                <StackPanel Grid.Column="3" Spacing="1" VerticalAlignment="Center" Opacity="{x:Bind VandalOpacity}">
+                                    <Image Source="{x:Bind VandalIcon}" Height="26" Stretch="Uniform" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{x:Bind VandalName}" Style="{StaticResource CaptionTextStyle}" FontSize="11" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="4" Spacing="2" VerticalAlignment="Center">
-                                    <Image Source="{x:Bind PhantomIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
-                                    <TextBlock Text="{x:Bind PhantomName}" Style="{StaticResource CaptionTextStyle}" FontSize="12" />
+                                <StackPanel Grid.Column="4" Spacing="1" VerticalAlignment="Center" Opacity="{x:Bind PhantomOpacity}">
+                                    <Image Source="{x:Bind PhantomIcon}" Height="26" Stretch="Uniform" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{x:Bind PhantomName}" Style="{StaticResource CaptionTextStyle}" FontSize="11" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="5" Spacing="2" VerticalAlignment="Center">
-                                    <Image Source="{x:Bind SheriffIcon}" Height="34" Stretch="Uniform" HorizontalAlignment="Left" />
-                                    <TextBlock Text="{x:Bind SheriffName}" Style="{StaticResource CaptionTextStyle}" FontSize="12" />
+                                <StackPanel Grid.Column="5" Spacing="1" VerticalAlignment="Center">
+                                    <Image Source="{x:Bind SheriffIcon}" Height="26" Stretch="Uniform" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{x:Bind SheriffName}" Style="{StaticResource CaptionTextStyle}" FontSize="11" />
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>

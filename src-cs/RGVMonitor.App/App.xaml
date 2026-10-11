@@ -110,9 +110,9 @@
             </Style>
 
             <Style x:Key="AvatarBorderStyle" TargetType="Border">
-                <Setter Property="Width" Value="40" />
-                <Setter Property="Height" Value="40" />
-                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Width" Value="34" />
+                <Setter Property="Height" Value="34" />
+                <Setter Property="CornerRadius" Value="7" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
             </Style>
@@ -148,6 +148,7 @@
                    BasedOn="{StaticResource DefaultListViewItemStyle}">
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="Padding" Value="0" />
+                <Setter Property="MinHeight" Value="0" />
                 <Setter Property="Margin" Value="0,1" />
             </Style>
 

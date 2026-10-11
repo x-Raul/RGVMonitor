@@ -76,7 +76,7 @@ public class SkinsService
             {
                 if (string.Equals(kv.Key, weaponUuid, System.StringComparison.OrdinalIgnoreCase) &&
                     skins.TryGetValue(kv.Value.ToLowerInvariant(), out var info))
-                    return new WeaponSkin(info.Name, info.Icon);
+                    return new WeaponSkin(info.Name, info.Icon, info.IsStandard);
             }
         }
         return new WeaponSkin("—", "");

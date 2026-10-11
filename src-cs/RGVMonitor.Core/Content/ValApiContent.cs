@@ -6,7 +6,8 @@ namespace RGVMonitor.Core.Content;
 public record AgentInfo(string Name, string Icon);
 
 /// Nombre e imagen (URL) de una skin.
-public record SkinInfo(string Name, string Icon);
+/// IsStandard: skin por defecto del arma (tema "Standard" de valorant-api).
+public record SkinInfo(string Name, string Icon, bool IsStandard = false);
 
 /// Nombre e imagen de fondo (URL) de un mapa.
 public record MapInfo(string Name, string Splash);
@@ -144,6 +145,9 @@ public class ValApiContent
         return map;
     }
 
+    /// Tema "Standard" de valorant-api: las skins por defecto (Standard Vandal, etc.).
+    private const string StandardSkinTheme = "5a629df4-4765-0214-bd40-fbb96542941f";
+
     public async Task<Dictionary<string, SkinInfo>> GetSkinsAsync()
     {
         if (_skins is not null) return _skins;
@@ -158,8 +162,10 @@ public class ValApiContent
             {
                 var uuid = skin.TryGetProperty("uuid", out var u) ? u.GetString() : null;
                 var name = skin.TryGetProperty("displayName", out var n) ? n.GetString() : null;
+                var theme = skin.TryGetProperty("themeUuid", out var t) ? t.GetString() : null;
+                var isStandard = string.Equals(theme, StandardSkinTheme, StringComparison.OrdinalIgnoreCase);
                 if (!string.IsNullOrEmpty(uuid) && !string.IsNullOrEmpty(name))
-                    map[uuid.ToLowerInvariant()] = new SkinInfo(name, BestIcon(skin) ?? "");
+                    map[uuid.ToLowerInvariant()] = new SkinInfo(name, BestIcon(skin) ?? "", isStandard);
             }
         }
         _skins = map;

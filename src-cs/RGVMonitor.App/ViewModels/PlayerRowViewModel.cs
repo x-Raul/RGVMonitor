@@ -14,6 +14,13 @@ namespace RGVMonitor.App.ViewModels;
 /// Una fila de la tabla, lista para mostrar (valores ya formateados).
 public partial class PlayerRowViewModel : ObservableObject
 {
+    /// Aviso si lleva la Vandal o la Phantom por defecto (se rellena al cargar las skins).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoSkinVisibility))]
+    private string _noSkinWarning = "";
+
+    public Visibility NoSkinVisibility => NoSkinWarning.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
     public PlayerRowViewModel(PlayerData data, bool isAlly, AgentInfo? agent,
                               string? rankIcon = null, bool isSelf = false, bool isParty = false,
                               string? peakSeason = null, RecentPlayer? seen = null,

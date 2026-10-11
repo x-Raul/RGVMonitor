@@ -95,6 +95,18 @@ public partial class MainViewModel : ObservableObject
     /// Media de cada equipo presente (aliados primero). Vacía fuera de partida.
     public ObservableCollection<TeamSummaryViewModel> TeamSummaries { get; } = new();
 
+    /// Lados del marcador "Aliados vs Enemigos" (null si ese equipo aún no se ve).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AllySummaryVisibility))]
+    private TeamSummaryViewModel? _allySummary;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EnemySummaryVisibility))]
+    private TeamSummaryViewModel? _enemySummary;
+
+    public Visibility AllySummaryVisibility => AllySummary is null ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility EnemySummaryVisibility => EnemySummary is null ? Visibility.Collapsed : Visibility.Visible;
+
     public MainViewModel(DispatcherQueue dispatcher)
     {
         _dispatcher = dispatcher;
@@ -152,6 +164,7 @@ public partial class MainViewModel : ObservableObject
                 IsBusy = false;
                 Players.Clear();
                 TeamSummaries.Clear();
+                AllySummary = EnemySummary = null;
                 WinProbVisibility = Visibility.Collapsed;
                 SelfRankVisibility = Visibility.Collapsed;
                 Status = "VALORANT cerrado o no listo. Reintentando…";
@@ -298,6 +311,7 @@ public partial class MainViewModel : ObservableObject
         IsBusy = true;
         Players.Clear();
         TeamSummaries.Clear();
+        AllySummary = EnemySummary = null;
         Status = $"Cargando {Label(state)}…";
 
         var selfPuuid = _services.Auth.Puuid;
@@ -348,7 +362,7 @@ public partial class MainViewModel : ObservableObject
             if (state is "INGAME" or "PREGAME" && list.Count > 0)
             {
                 CurrentMatchSig = string.Join(",", list.Select(p => p.Puuid).OrderBy(x => x));
-                _ = SkinsVm.EnsureLoadedAsync(CurrentMatchSig);
+                _ = ApplySkinWarningsAsync(CurrentMatchSig);
             }
             else
             {
@@ -399,13 +413,32 @@ public partial class MainViewModel : ObservableObject
                                       peakIcon, rrToUp, KnownName(p.Puuid));
     }
 
+    // Carga las skins de la partida (también deja lista la pestaña Skins) y marca en
+    // la tabla a quien lleve la Vandal o la Phantom por defecto.
+    private async Task ApplySkinWarningsAsync(string matchSig)
+    {
+        try
+        {
+            await SkinsVm.EnsureLoadedAsync(matchSig);
+            if (matchSig != CurrentMatchSig) return;
+            var skins = SkinsVm.Rows.GroupBy(r => r.Puuid).ToDictionary(g => g.Key, g => g.First());
+            foreach (var row in Players)
+                if (skins.TryGetValue(row.Puuid, out var skin))
+                    row.NoSkinWarning = skin.NoSkinWarning;
+        }
+        catch { /* sin aviso de skins si falla */ }
+    }
+
     // Solo equipos con jugadores (en selección de agente aún no se ven los enemigos).
     private void AddTeamSummary(IEnumerable<PlayerData> team, bool isAlly)
     {
         var avg = TeamAverages.From(team);
         if (avg.Players == 0) return;
         var icon = avg.Tier is int tier ? _rankIcons.GetValueOrDefault(tier) : null;
-        TeamSummaries.Add(new TeamSummaryViewModel(avg, isAlly, icon));
+        var summary = new TeamSummaryViewModel(avg, isAlly, icon);
+        TeamSummaries.Add(summary);
+        if (isAlly) AllySummary = summary;
+        else EnemySummary = summary;
     }
 
     /// Último nombre conocido de un jugador (historial primero, luego notas).
@@ -500,10 +533,7 @@ public partial class MainViewModel : ObservableObject
 
         SelfIsOneWinAway = toRankUp <= RankProgress.TypicalWinRr;
         SelfRankCaption =
-            $"Tu rango: {RGVMonitor.Core.Content.RankTiers.Name(self.Rank.Tier)} · {self.Rank.Rr} RR · " +
-            (SelfIsOneWinAway
-                ? $"te faltan {toRankUp}: ¡a una victoria de subir!"
-                : $"te faltan {toRankUp} para subir");
+            $"{RGVMonitor.Core.Content.RankTiers.Name(self.Rank.Tier)} · {self.Rank.Rr} RR · faltan {toRankUp}";
         SelfRankVisibility = Visibility.Visible;
     }
 
