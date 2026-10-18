@@ -13,6 +13,9 @@ public class PlayerNotesStore
     private readonly string _path;
     private readonly Dictionary<string, PlayerNote> _cache = new();
     private bool _loaded;
+    // Fecha del archivo al leerlo. Si cambia por fuera (p. ej. al importar una copia),
+    // se vuelve a leer antes de usar o guardar, para no pisar lo importado.
+    private DateTime _loadedStamp;
 
     public PlayerNotesStore(string? path = null)
     {
@@ -21,16 +24,32 @@ public class PlayerNotesStore
             "RGVMonitor", "notes.json");
     }
 
+    // true si el archivo existe pero no se pudo leer (p. ej. bloqueado por otro
+    // programa). Mientras tanto no se guarda nada, para no pisarlo con una lista vacía.
+    private bool _unreadable;
+
     private void EnsureLoaded()
     {
-        if (_loaded) return;
+        if (_loaded && !_unreadable && FileStamp() == _loadedStamp) return;
         _loaded = true;
+        _unreadable = false;
+        _cache.Clear();
+        _loadedStamp = FileStamp();
         if (!File.Exists(_path)) return;
+
+        string json;
+        try { json = File.ReadAllText(_path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _unreadable = true;
+            return;
+        }
 
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(_path));
-            if (doc.RootElement.ValueKind != JsonValueKind.Object) return;
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                throw new JsonException("notes.json no es un objeto");
 
             foreach (var prop in doc.RootElement.EnumerateObject())
             {
@@ -44,7 +63,14 @@ public class PlayerNotesStore
                 _cache[prop.Name] = new PlayerNote(prop.Name, tag, note, name, updated);
             }
         }
-        catch { /* notas corruptas: arrancamos vacíos */ }
+        catch (JsonException)
+        {
+            // Archivo dañado: se aparta (notes.corrupt-<fecha>.json) en vez de sobrescribirlo
+            // y se empieza de cero. Si no se puede apartar, no se guardará encima.
+            _cache.Clear();
+            if (SafeFile.SetAsideUnreadable(_path) is null) _unreadable = true;
+            _loadedStamp = FileStamp();
+        }
     }
 
     public PlayerNote? Get(string puuid)
@@ -90,9 +116,9 @@ public class PlayerNotesStore
 
     private void Save()
     {
+        if (_unreadable) return;
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
             var obj = _cache.ToDictionary(kv => kv.Key, kv => new Dictionary<string, object?>
             {
                 ["tag"] = kv.Value.Tag,
@@ -100,10 +126,14 @@ public class PlayerNotesStore
                 ["name"] = kv.Value.Name,
                 ["updated"] = kv.Value.Updated.ToUnixTimeSeconds(),
             });
-            File.WriteAllText(_path, JsonSerializer.Serialize(obj));
+            SafeFile.Write(_path, JsonSerializer.Serialize(obj));
+            _loadedStamp = FileStamp();
         }
         catch { /* si no se puede guardar, no es crítico */ }
     }
+
+    private DateTime FileStamp()
+        => File.Exists(_path) ? File.GetLastWriteTimeUtc(_path) : DateTime.MinValue;
 
     private static string? Str(JsonElement el, string prop)
         => el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;

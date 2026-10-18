@@ -271,13 +271,7 @@ public class RecentPlayersStore
     {
         if (names.Count == 0 || !File.Exists(_path)) return 0;
 
-        Dictionary<string, List<Dictionary<string, object?>>> data;
-        try
-        {
-            data = JsonSerializer.Deserialize<Dictionary<string, List<Dictionary<string, object?>>>>(
-                File.ReadAllText(_path)) ?? new();
-        }
-        catch { return 0; }
+        if (TryReadForWrite() is not { } data) return 0;
 
         var filled = 0;
         foreach (var (puuid, name) in names)
@@ -296,7 +290,7 @@ public class RecentPlayersStore
 
         try
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(data));
+            SafeFile.Write(_path, JsonSerializer.Serialize(data));
             return filled;
         }
         catch { return 0; }
@@ -306,15 +300,9 @@ public class RecentPlayersStore
     public void Record(IEnumerable<(string Puuid, string Name, int Rank, int Rr, bool Ally, string Agent)> players,
                        string? matchId = null, bool ranked = true)
     {
-        Dictionary<string, List<Dictionary<string, object?>>> data;
-        try
-        {
-            data = File.Exists(_path)
-                ? JsonSerializer.Deserialize<Dictionary<string, List<Dictionary<string, object?>>>>(
-                    File.ReadAllText(_path)) ?? new()
-                : new();
-        }
-        catch { data = new(); }
+        // Si el historial existe pero no se puede leer, este encuentro no se guarda:
+        // perder una partida es mejor que pisar todo el historial con una lista vacía.
+        if (TryReadForWrite() is not { } data) return;
 
         var epoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         foreach (var p in players)
@@ -340,11 +328,29 @@ public class RecentPlayersStore
             lst.Add(enc);
         }
 
+        try { SafeFile.Write(_path, JsonSerializer.Serialize(data)); }
+        catch { /* si no se puede guardar, no es crítico */ }
+    }
+
+    /// Lee el historial para modificarlo. Devuelve null si no se debe escribir: el
+    /// archivo existe pero está bloqueado, o está dañado y no se pudo apartar. Un
+    /// archivo dañado se aparta (stats.corrupt-<fecha>.json) y se empieza uno nuevo.
+    private Dictionary<string, List<Dictionary<string, object?>>>? TryReadForWrite()
+    {
+        if (!File.Exists(_path)) return new();
+
+        string json;
+        try { json = File.ReadAllText(_path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.WriteAllText(_path, JsonSerializer.Serialize(data));
+            return JsonSerializer.Deserialize<Dictionary<string, List<Dictionary<string, object?>>>>(json)
+                ?? throw new JsonException("stats.json vacío");
         }
-        catch { /* si no se puede guardar, no es crítico */ }
+        catch (JsonException)
+        {
+            return SafeFile.SetAsideUnreadable(_path) is null ? null : new();
+        }
     }
 }

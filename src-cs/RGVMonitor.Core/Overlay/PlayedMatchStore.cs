@@ -48,8 +48,7 @@ public class PlayedMatchStore
                 .ToList();
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-                File.WriteAllText(_path, JsonSerializer.Serialize(trimmed));
+                SafeFile.Write(_path, JsonSerializer.Serialize(trimmed));
             }
             catch { /* no crítico: se vuelve a pedir la próxima vez */ }
         }
