@@ -43,6 +43,15 @@ public class MatchNamesService
         return updates.Count > 0 ? updates[0] : (null, null, null, null);
     }
 
+    /// Ids de tus últimas competitivas (la más reciente primero; Riot da como mucho 20).
+    public async Task<List<string>> GetRecentCompetitiveIdsAsync(string selfPuuid, int count = 20)
+        => (await GetRecentUpdatesAsync(selfPuuid, Math.Min(count, 20)))
+            .Select(u => u.MatchId).OfType<string>().ToList();
+
+    /// match-details crudo de una partida (para quien necesite parsear su propia vista).
+    public Task<string> GetMatchDetailsAsync(string matchId)
+        => _api.FetchPdAsync($"/match-details/v1/matches/{matchId}");
+
     /// Últimas entradas de competitiveupdates (la más reciente primero).
     private async Task<List<(string? MatchId, int? RrEarned, int? RrAfter, int? TierAfter)>> GetRecentUpdatesAsync(
         string selfPuuid, int count)

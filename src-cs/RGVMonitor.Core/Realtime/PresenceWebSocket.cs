@@ -5,6 +5,12 @@ using RGVMonitor.Core.Models;
 
 namespace RGVMonitor.Core.Realtime;
 
+/// Marcador en vivo de la partida propia (MapUrl tal y como lo da la presence).
+public record MatchScore(int Ally, int Enemy, string MapUrl);
+
+/// Búsqueda de partida: Since es null cuando la party no está en cola.
+public record QueueStatus(DateTimeOffset? Since, string QueueId);
+
 /// Escucha presences locales y emite el sessionLoopState del jugador cuando cambia.
 public class PresenceWebSocket
 {
@@ -12,6 +18,12 @@ public class PresenceWebSocket
     private readonly string _selfPuuid;
 
     public event Action<string>? GameStateChanged;
+
+    /// Solo en partida y solo cuando cambia el marcador o el mapa (lo usan los overlays).
+    public event Action<MatchScore>? MatchScoreChanged;
+
+    /// Al entrar o salir de cola (lo usa el contador de cola de los overlays).
+    public event Action<QueueStatus>? QueueChanged;
 
     public PresenceWebSocket(Lockfile lockfile, string selfPuuid)
     {
@@ -32,6 +44,8 @@ public class PresenceWebSocket
         var buffer = new byte[64 * 1024];
         var accumulator = new MemoryStream();
         string? lastState = null;
+        MatchScore? lastScore = null;
+        QueueStatus? lastQueue = null;
 
         while (!ct.IsCancellationRequested && ws.State == WebSocketState.Open)
         {
@@ -52,11 +66,32 @@ public class PresenceWebSocket
             var presences = ExtractPresencesPayload(msg);
             if (presences is null) continue;
 
-            var state = PresenceParser.GetGameState(presences, _selfPuuid);
+            var self = PresenceParser.GetSelf(presences, _selfPuuid);
+            var state = self?.State;
             if (state is not null && state != lastState)
             {
                 lastState = state;
                 GameStateChanged?.Invoke(state);
+            }
+
+            if (self is not null)
+            {
+                var queue = new QueueStatus(self.QueueSince, self.QueueId ?? "");
+                if (queue != lastQueue)
+                {
+                    lastQueue = queue;
+                    QueueChanged?.Invoke(queue);
+                }
+            }
+
+            if (self is { State: "INGAME", AllyScore: int ally, EnemyScore: int enemy })
+            {
+                var score = new MatchScore(ally, enemy, self.MapUrl ?? "");
+                if (score != lastScore)
+                {
+                    lastScore = score;
+                    MatchScoreChanged?.Invoke(score);
+                }
             }
         }
     }

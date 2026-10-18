@@ -424,12 +424,44 @@
                 </ListView>
 
                 <!-- Estado vacío (se muestra desde el code-behind cuando no hay filas) -->
+                <!-- Radar: anillos que se expanden, icono flotando y puntos de "buscando" (animado en code-behind) -->
                 <StackPanel x:Name="EmptyState" Grid.Row="1" Spacing="8"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <FontIcon Glyph="&#xE7FC;" FontSize="36" Opacity="0.4" Margin="0,0,0,4" />
+                    <Grid Width="140" Height="140" Margin="0,0,0,2">
+                        <Ellipse x:Name="RadarRing1" Width="72" Height="72" Stroke="{StaticResource AllyBrush}"
+                                 StrokeThickness="1.5" Opacity="0" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform><ScaleTransform /></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse x:Name="RadarRing2" Width="72" Height="72" Stroke="{StaticResource AllyBrush}"
+                                 StrokeThickness="1.5" Opacity="0" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform><ScaleTransform /></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse x:Name="RadarRing3" Width="72" Height="72" Stroke="{StaticResource AllyBrush}"
+                                 StrokeThickness="1.5" Opacity="0" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform><ScaleTransform /></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse x:Name="RadarCore" Width="72" Height="72" Fill="#1F4C97ED"
+                                 Stroke="#594C97ED" StrokeThickness="1" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform><ScaleTransform /></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <FontIcon x:Name="RadarIcon" Glyph="&#xE7FC;" FontSize="30"
+                                  Foreground="{StaticResource AllyBrush}" Opacity="0.9">
+                            <FontIcon.RenderTransform><TranslateTransform /></FontIcon.RenderTransform>
+                        </FontIcon>
+                    </Grid>
                     <TextBlock Text="Sin partida activa" Style="{StaticResource EmptyStateTitleStyle}" />
                     <TextBlock Text="Los jugadores aparecerán aquí en cuanto entres en la selección de agente."
                                Style="{StaticResource EmptyStateBodyStyle}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" Margin="0,6,0,0">
+                        <TextBlock Text="Buscando partida" Style="{StaticResource CaptionTextStyle}"
+                                   VerticalAlignment="Center" />
+                        <Ellipse x:Name="RadarDot1" Width="4" Height="4" Fill="{StaticResource AllyBrush}"
+                                 Opacity="0.25" VerticalAlignment="Center" />
+                        <Ellipse x:Name="RadarDot2" Width="4" Height="4" Fill="{StaticResource AllyBrush}"
+                                 Opacity="0.25" VerticalAlignment="Center" />
+                        <Ellipse x:Name="RadarDot3" Width="4" Height="4" Fill="{StaticResource AllyBrush}"
+                                 Opacity="0.25" VerticalAlignment="Center" />
+                    </StackPanel>
                 </StackPanel>
                 <!-- Leyenda al pie de la tabla: secundaria, no compite con los datos -->
                 <Border Grid.Row="2" Style="{StaticResource TableFooterStyle}">

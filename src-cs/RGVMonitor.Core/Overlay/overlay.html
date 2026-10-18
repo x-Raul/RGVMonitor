@@ -1,0 +1,1178 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RGV Overlays</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@500;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red: #ff4655;
+  --teal: #17e5b0;
+  --gold: #f5c542;
+  --ice: #8fd3ff;
+  --ink: #ece8e1;
+  --muted: rgba(236, 232, 225, .62);
+  --panel: rgba(15, 25, 35, .88);
+  --line: rgba(236, 232, 225, .14);
+  --display: 'Bebas Neue', 'Oswald', Impact, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  /* OBS: fondo transparente para que solo se vean los widgets. */
+  background: transparent;
+  color: var(--ink);
+  font-family: Inter, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(6px);
+}
+.w { position: absolute; display: none; }
+/* Widget suelto: centrado en la fuente de OBS (o en la ventana del navegador). */
+body.single { min-height: 100vh; display: grid; place-items: center; }
+body.single .w.on { display: block; position: relative; }
+/* Todo junto: lienzo fijo 1920×1080 (lo que espera OBS) escalado y centrado en la
+   fuente. Cada widget admite &scale= para hacerlos más pequeños o grandes. */
+body.all { width: 1920px; height: 1080px; transform-origin: 0 0;
+  transform: translate(var(--dx, 0), var(--dy, 0)) scale(var(--fit, 1)); }
+body.all .w { display: block; zoom: var(--ui, 1);
+  transition: opacity .45s ease, translate .6s cubic-bezier(.2,1.25,.4,1), visibility 0s; }
+/* Al cambiar de fase los widgets salen hacia su borde y entran con rebote. */
+body.all .w.off { opacity: 0; visibility: hidden; translate: -56px 0;
+  transition: opacity .3s ease, translate .3s ease-in, visibility 0s .3s; }
+body.all #queue.off, body.all #pregame.off, body.all #nemesis.off { translate: 56px 0; }
+
+/* Zonas que NO se tapan (HUD de VALORANT a 1080p): minimapa arriba a la izquierda,
+   marcador y tiempo arriba en el centro, killfeed arriba a la derecha, vida y
+   habilidades abajo en el centro. Los widgets van en las columnas laterales, por
+   debajo del minimapa y del killfeed, y cambian de sitio según la fase. */
+body.all #score    { top: 450px; left: 24px; }
+body.all #session  { top: 450px; left: 24px; }
+body.all #queue    { top: 450px; right: 24px; }
+body.all #pregame  { top: 170px; right: 24px; }
+body.all #nemesis  { top: 450px; right: 24px; }
+body.all #mvp      { bottom: 160px; left: 50%; transform: translateX(-50%); }
+
+/* En partida: marcador compacto a la izquierda (con la sesión resumida dentro). */
+body.all[data-state="INGAME"] #score { width: 400px; padding: 10px 14px 12px; }
+body.all[data-state="INGAME"] #score .sc-num { font-size: 46px; min-width: 44px; }
+body.all[data-state="INGAME"] #score .sc-map { font-size: 18px; }
+body.all[data-state="INGAME"] #score .sc-lbl { display: none; }
+body.all[data-state="INGAME"] #score .sc-row { grid-template-columns: 1fr auto 1fr; }
+body.all[data-state="INGAME"] #score .sc-num.ally { text-align: right; }
+body.all[data-state="INGAME"] #score .sc-num.enemy { text-align: left; }
+body.all[data-state="INGAME"] #score .rd { width: 12px; height: 12px; }
+/* &zones=1: zonas aproximadas del HUD de VALORANT a 1080p, para colocar cosas. */
+.zone { position: absolute; border: 2px dashed rgba(255,70,85,.9); background: rgba(255,70,85,.12);
+  font: 700 12px/1 Inter, sans-serif; color: #ff4655; padding: 6px; pointer-events: none; }
+body.all #toast { top: 150px; left: 50%; transform: translateX(-50%); }
+/* Chat: columna derecha, bajo los reencuentros y por encima del arma/munición. */
+body.all #chat { top: 640px; right: 24px; }
+/* En selección, los reencuentros van debajo de la ficha del mapa. */
+body.all[data-state="PREGAME"] #nemesis { top: 520px; }
+body.all[data-state="PREGAME"] #chat { top: 700px; }
+/* Cola y selección se desvanecen cuando no tocan (también como widget suelto). */
+#queue, #pregame { transition: opacity .5s; }
+#queue.gone, #pregame.gone { opacity: 0; }
+
+/* ───────────── Contador de cola ───────────── */
+#queue { width: 380px; padding: 14px 18px; text-align: center; }
+.q-lbl { font: 800 11px/1 Inter, sans-serif; letter-spacing: .18em; color: var(--muted); }
+.q-time { font: 72px/0.95 var(--display); letter-spacing: .04em; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+.q-msg { font: 600 12px/1.3 Inter, sans-serif; color: var(--muted); min-height: 16px; }
+.q-dots { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
+.q-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); animation: dot 1.2s infinite; }
+.q-dots i:nth-child(2) { animation-delay: .2s; }
+.q-dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes dot { 0%, 80%, 100% { opacity: .2; transform: scale(.7); } 40% { opacity: 1; transform: scale(1); } }
+#queue.q2 .q-time { color: var(--gold); }
+#queue.q2 .q-dots i { background: var(--gold); }
+#queue.q3 { border-color: var(--red); box-shadow: 0 0 0 1px var(--red), 0 0 26px rgba(255,70,85,.4); }
+#queue.q3 .q-time { color: var(--red); animation: shake .35s infinite; }
+#queue.q3 .q-dots i { background: var(--red); animation-duration: .6s; }
+#queue.q4 .q-time { animation: shake .2s infinite, pulse .8s infinite; }
+
+/* ───────────── Selección de agente ───────────── */
+#pregame { width: 560px; padding: 0; overflow: hidden; }
+.pg-map { position: relative; padding: 16px 20px 14px; background-size: cover; background-position: center; }
+.pg-map::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(15,25,35,.97) 35%, rgba(15,25,35,.55)); }
+.pg-map > * { position: relative; }
+.pg-name { font: 52px/0.9 var(--display); letter-spacing: .08em; }
+.pg-rec { font: 600 13px/1.3 Inter, sans-serif; color: var(--muted); margin-top: 4px; }
+.pg-rec b { color: var(--ink); }
+.pg-best { display: flex; align-items: center; gap: 8px; margin-top: 8px; font: 600 12px/1.2 Inter, sans-serif; color: var(--muted); }
+.pg-best img { width: 26px; height: 26px; border-radius: 3px; }
+.pg-drought { margin-top: 8px; font: 18px/1 var(--display); letter-spacing: .1em; color: var(--red); }
+.pg-drought.good { color: var(--teal); }
+.pg-pick { display: grid; grid-template-columns: 72px 1fr; gap: 14px; align-items: center; padding: 14px 20px 16px; border-top: 1px solid var(--line); }
+.pg-pick .av { width: 72px; height: 72px; transition: filter .3s; }
+.pg-pick.hover .av img { filter: grayscale(.7) brightness(.8); }
+.pg-pick.lock { animation: lockFlash .7s ease-out; }
+@keyframes lockFlash { 0% { box-shadow: inset 0 0 0 200px rgba(23,229,176,.35); } 100% { box-shadow: inset 0 0 0 200px transparent; } }
+.pg-agent { font: 30px/1 var(--display); letter-spacing: .08em; display: flex; align-items: center; gap: 10px; }
+.pg-state { font: 800 10px/1 Inter, sans-serif; letter-spacing: .16em; padding: 4px 6px; border-radius: 2px; background: rgba(255,255,255,.1); color: var(--muted); }
+.pg-state.locked { background: var(--teal); color: #04121a; }
+.pg-stats { font: 600 12px/1.4 Inter, sans-serif; color: var(--muted); margin-top: 4px; }
+.pg-stats b { color: var(--ink); }
+.pg-exp { display: none; margin-top: 6px; font: 18px/1 var(--display); letter-spacing: .12em; color: #111; background: var(--gold); padding: 4px 8px 2px; border-radius: 2px; width: fit-content; }
+.pg-exp.show { display: block; animation: pulse 1.1s infinite; }
+
+/* ───────────── Marcador ───────────── */
+#score { width: 560px; padding: 12px 18px 14px; transition: box-shadow .4s, border-color .4s; }
+.sc-row { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 12px; }
+.sc-lbl { font: 800 11px/1 Inter, sans-serif; letter-spacing: .18em; color: var(--muted); }
+.sc-lbl.enemy { text-align: right; }
+.sc-num { font: 64px/0.9 var(--display); min-width: 64px; text-align: center; }
+.sc-num.ally { color: var(--teal); }
+.sc-num.enemy { color: var(--red); }
+.sc-map { text-align: center; font: 22px/1 var(--display); letter-spacing: .12em; color: var(--muted); }
+.pop { animation: pop .55s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.45); filter: brightness(1.6); } 100% { transform: scale(1); } }
+
+.momentum { position: relative; height: 8px; margin: 10px 0 8px; background: rgba(255,255,255,.07); border-radius: 4px; overflow: hidden; }
+.momentum .mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: var(--line); }
+.momentum .fill { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; border-radius: 4px;
+  transition: left .6s cubic-bezier(.3,1.3,.5,1), width .6s cubic-bezier(.3,1.3,.5,1), background .4s; }
+.momentum.fire .fill { background: linear-gradient(90deg, #ffb703, #ff4d00, #ffb703); background-size: 200% 100%;
+  animation: flow 1s linear infinite; box-shadow: 0 0 14px #ff7b00; }
+.momentum.frost .fill { background: linear-gradient(90deg, #dff4ff, var(--ice), #dff4ff); background-size: 200% 100%;
+  animation: flow 1.6s linear infinite; box-shadow: 0 0 14px var(--ice); }
+@keyframes flow { to { background-position: -200% 0; } }
+.mom-cap { font: 700 10px/1 Inter, sans-serif; letter-spacing: .14em; color: var(--muted); text-align: center; height: 10px; }
+
+.rounds { display: flex; gap: 3px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+.rd { width: 14px; height: 14px; border-radius: 2px; background: rgba(255,255,255,.12); }
+.rd.W { background: var(--teal); }
+.rd.L { background: var(--red); }
+.rd.half { margin-left: 8px; }
+.rd.new { animation: drop .5s cubic-bezier(.2,1.5,.4,1); }
+@keyframes drop { from { transform: translateY(-14px) scale(.4); opacity: 0; } }
+
+.sc-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; min-height: 20px; }
+.wp { font: 600 12px/1 Inter, sans-serif; color: var(--muted); }
+.wp b { font: 20px/1 var(--display); color: var(--ink); letter-spacing: .04em; }
+.badge { font: 18px/1 var(--display); letter-spacing: .14em; padding: 4px 10px 2px; border-radius: 2px; display: none; }
+.badge.show { display: inline-block; animation: pulse 1.1s ease-in-out infinite; }
+.badge.mp { background: var(--gold); color: #111; }
+.badge.mpe { background: var(--red); color: #fff; }
+.badge.ot { background: #fff; color: #111; }
+.badge.cb { background: linear-gradient(90deg, var(--teal), #3a86ff); color: #04121a; }
+@keyframes pulse { 50% { transform: scale(1.06); filter: brightness(1.25); } }
+#score.hot { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 28px rgba(245,197,66,.45); animation: heartbeat 1.1s infinite; }
+#score.cold { border-color: var(--red); box-shadow: 0 0 0 1px var(--red), 0 0 28px rgba(255,70,85,.45); animation: heartbeat 1.1s infinite; }
+@keyframes heartbeat { 0%,100% { filter: none; } 15% { filter: brightness(1.15); } 30% { filter: none; } 45% { filter: brightness(1.1); } }
+
+.sc-sess { display: none; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--line); font: 700 11px/1 Inter, sans-serif; letter-spacing: .08em; color: var(--muted); }
+.sc-sess img { width: 22px; height: 22px; }
+.sc-sess b { color: var(--ink); }
+body.all[data-state="INGAME"] #score .sc-sess { display: flex; }
+
+/* Avatar de agente: si no hay imagen (aún sin elegir) o no carga, queda la silueta. */
+.av { position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 4px;
+  background: linear-gradient(135deg, #1d2833, #2c3a48); color: rgba(236,232,225,.35); }
+.av svg { width: 58%; height: 58%; }
+.av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; animation: avIn .4s ease-out; }
+@keyframes avIn { from { opacity: 0; scale: 1.25; } }
+.av.empty::after { content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.12) 50%, transparent 70%);
+  background-size: 250% 100%; animation: shimmer 1.6s linear infinite; }
+@keyframes shimmer { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+
+/* ───────────── Avisos de evento ───────────── */
+#toast { pointer-events: none; text-align: center; }
+body.single #toast.on { display: block; }
+.ts { position: relative; padding: 10px 34px 8px; overflow: hidden; border-radius: 3px;
+  background: var(--panel); border: 1px solid var(--line); animation: tsIn 2.9s cubic-bezier(.2,1.2,.4,1) forwards; }
+.ts::before { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.35) 50%, transparent 65%);
+  background-size: 250% 100%; animation: sweep .9s .15s ease-out both; }
+.ts b { display: block; font: 46px/1 var(--display); letter-spacing: .1em; }
+.ts span { font: 700 12px/1.2 Inter, sans-serif; letter-spacing: .14em; color: var(--muted); }
+.ts.good b { color: var(--teal); } .ts.bad b { color: var(--red); } .ts.gold b { color: var(--gold); }
+@keyframes tsIn { 0% { opacity: 0; transform: scale(.6) skewX(-12deg); } 12% { opacity: 1; transform: scale(1.06) skewX(0); }
+  20% { transform: scale(1); } 85% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-14px); } }
+@keyframes sweep { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+
+/* ───────────── Chat de Twitch ───────────── */
+#chat { width: 380px; }
+body.single #chat.on { display: block; }
+.ch-list { display: flex; flex-direction: column; gap: 4px; }
+.ch { padding: 6px 10px; border-radius: 3px; background: rgba(15,25,35,.78); border-left: 2px solid var(--line);
+  font: 600 13px/1.35 Inter, sans-serif; color: var(--ink); overflow-wrap: anywhere;
+  animation: chIn .35s cubic-bezier(.2,1.3,.4,1) both; transition: opacity .6s; }
+.ch b { font-weight: 800; margin-right: 6px; }
+.ch img { height: 22px; vertical-align: -6px; margin: 0 1px; }
+.ch.old { opacity: 0; }
+.ch.sys { color: var(--muted); font-size: 12px; border-left-color: var(--teal); }
+@keyframes chIn { from { opacity: 0; transform: translateX(30px); } }
+
+/* ───────────── Sesión ───────────── */
+#session { width: 330px; padding: 14px 16px; }
+.rk { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; }
+.rk img { width: 56px; height: 56px; object-fit: contain; }
+.rk-name { font: 28px/1 var(--display); letter-spacing: .06em; }
+.rk-bar { height: 6px; background: rgba(255,255,255,.1); border-radius: 3px; margin: 6px 0 4px; overflow: hidden; }
+.rk-bar div { height: 100%; width: 0; background: var(--teal); transition: width 1.2s cubic-bezier(.3,1.1,.4,1); }
+.rk-txt { font: 600 11px/1.2 Inter, sans-serif; color: var(--muted); }
+.ss { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ss > div { text-align: center; }
+.ss b { display: block; font: 30px/1 var(--display); letter-spacing: .04em; }
+.ss span { font: 700 9px/1 Inter, sans-serif; letter-spacing: .16em; color: var(--muted); }
+.pos { color: var(--teal); }
+.neg { color: var(--red); }
+.streak.fire b { color: #ff9f1c; text-shadow: 0 0 12px #ff5400; animation: flicker .25s infinite alternate; }
+.streak.storm b { color: var(--ice); text-shadow: 0 0 12px #3a86ff; animation: shake .4s infinite; }
+@keyframes flicker { to { text-shadow: 0 0 20px #ff9f1c, 0 -4px 10px #ff5400; } }
+@keyframes shake { 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+.goal { margin-top: 10px; font: 600 11px/1.3 Inter, sans-serif; color: var(--muted); }
+
+/* ───────────── Tarjeta de fin de partida ───────────── */
+#mvp { width: 620px; padding: 0; overflow: hidden; opacity: 0; pointer-events: none; }
+#mvp.show { animation: cardIn .7s cubic-bezier(.2,1.2,.4,1) forwards; }
+#mvp.hide { animation: cardOut .5s ease-in forwards; }
+@keyframes cardIn { from { opacity: 0; translate: 0 40px; scale: .9; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes cardOut { from { opacity: 1; } to { opacity: 0; translate: 0 30px; } }
+.mv-head { position: relative; padding: 16px 20px 12px; background-size: cover; background-position: center; }
+.mv-head::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(15,25,35,.96) 30%, rgba(15,25,35,.6)); }
+.mv-head > * { position: relative; }
+.mv-res { font: 54px/0.9 var(--display); letter-spacing: .06em; }
+.mv-res.win { color: var(--teal); }
+.mv-res.loss { color: var(--red); }
+.mv-meta { font: 600 12px/1 Inter, sans-serif; color: var(--muted); letter-spacing: .08em; margin-top: 4px; }
+.mv-body { display: grid; grid-template-columns: 96px 1fr; gap: 16px; padding: 14px 20px 18px; }
+.mv-body img { width: 96px; height: 96px; border-radius: 4px; background: rgba(255,255,255,.06); }
+.mv-title { font: 34px/1 var(--display); letter-spacing: .06em; color: var(--gold); }
+.mv-sub { font: 600 12px/1.3 Inter, sans-serif; color: var(--muted); margin-top: 2px; }
+.mv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.mv-grid div { background: rgba(255,255,255,.05); border-radius: 3px; padding: 6px 8px; }
+.mv-grid b { display: block; font: 24px/1 var(--display); letter-spacing: .03em; }
+.mv-grid span { font: 700 9px/1 Inter, sans-serif; letter-spacing: .14em; color: var(--muted); }
+.up::after { content: ' ▲'; color: var(--teal); font-size: 12px; }
+.down::after { content: ' ▼'; color: var(--red); font-size: 12px; }
+.mv-rr { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-top: 1px solid var(--line); }
+.slot { font: 40px/1 var(--display); letter-spacing: .04em; display: inline-block; min-width: 90px; }
+.slot.spin { animation: blur .08s linear infinite; }
+@keyframes blur { 50% { transform: translateY(-2px); filter: blur(1px); } }
+.mv-rank { display: flex; align-items: center; gap: 8px; font: 22px/1 var(--display); letter-spacing: .06em; }
+.mv-rank img { width: 36px; height: 36px; }
+.promo { position: absolute; inset: 0; display: none; place-items: center; text-align: center;
+  background: radial-gradient(circle, rgba(245,197,66,.35), rgba(15,25,35,.95) 70%); }
+.promo.show { display: grid; animation: promo 3.2s ease forwards; }
+.promo b { font: 64px/1 var(--display); color: var(--gold); letter-spacing: .08em; text-shadow: 0 0 30px var(--gold); }
+.promo.down b { color: var(--red); text-shadow: 0 0 30px var(--red); }
+@keyframes promo { 0% { opacity: 0; scale: 1.6; } 15% { opacity: 1; scale: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ───────────── Némesis ───────────── */
+/* Una tarjeta cada vez, rotando con barra de tiempo. Aparece durante la selección,
+   al empezar la partida y de nuevo cada 6 rondas. */
+#nemesis { width: 380px; transition: opacity .5s, translate .6s cubic-bezier(.2,1.25,.4,1); }
+body.single #nemesis.on { display: block; }
+#nemesis.idle { opacity: 0; translate: 56px 0; }
+.nm-head { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px;
+  border-radius: 4px 4px 0 0; border-bottom: none !important; }
+.nm-head b { font: 17px/1 var(--display); letter-spacing: .16em; }
+.nm-dots { display: flex; gap: 5px; }
+.nm-dots i { width: 18px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.15); transition: background .3s, width .3s; }
+.nm-dots i.on { width: 28px; background: var(--ink); }
+.nm-stage { display: grid; perspective: 600px; }
+.nm { grid-area: 1 / 1; position: relative; display: grid; grid-template-columns: 72px 1fr; gap: 14px; align-items: center;
+  padding: 12px 14px; overflow: hidden; border-radius: 0 0 4px 4px; border-left: 3px solid var(--red); color: var(--red); }
+.nm.ally { border-left-color: var(--teal); color: var(--teal); }
+.nm.in { animation: nmIn .6s cubic-bezier(.2,1.3,.4,1) both; }
+.nm.leave { animation: nmOut .35s ease-in forwards; }
+@keyframes nmIn { from { opacity: 0; transform: rotateX(-75deg) translateY(16px); transform-origin: top; } }
+@keyframes nmOut { to { opacity: 0; transform: rotateX(70deg) translateY(-10px); transform-origin: bottom; } }
+.nm .av { width: 72px; height: 72px; }
+.nm-tag { font: 20px/1 var(--display); letter-spacing: .14em; }
+.nm.in .nm-tag { animation: glitch .5s .25s steps(2) 2; }
+@keyframes glitch { 50% { text-shadow: 2px 0 var(--ice), -2px 0 var(--red); transform: translateX(1px); } }
+.nm-name { font: 800 16px/1.2 Inter, sans-serif; color: var(--ink); margin-top: 2px; }
+.nm-txt { font: 600 11px/1.35 Inter, sans-serif; color: var(--muted); margin-top: 3px; }
+.nm-txt b { color: var(--ink); }
+.nm-agent { margin-left: 8px; padding: 2px 6px; border-radius: 2px; vertical-align: 2px;
+  font: 700 10px/1 Inter, sans-serif; letter-spacing: .1em; text-transform: uppercase;
+  background: rgba(255,255,255,.08); color: var(--muted); }
+.nm-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: currentColor;
+  animation: bar var(--t, 6s) linear forwards; }
+@keyframes bar { to { width: 100%; } }
+
+/* ───────────── Ayuda (sin ?w) ───────────── */
+#help { display: none; max-width: 760px; margin: 40px auto; padding: 24px 28px; background: #0f1923; }
+body.help { overflow: auto; background: #0b121a; }
+body.help #help { display: block; }
+#help h1 { font: 44px/1 var(--display); letter-spacing: .06em; margin: 0 0 6px; }
+#help p, #help li { color: var(--muted); font-size: 14px; line-height: 1.5; }
+#help code { background: rgba(255,255,255,.08); padding: 2px 6px; border-radius: 3px; color: var(--ink); }
+#help a { color: var(--teal); }
+#help table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+#help td, #help th { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+.conn { position: fixed; bottom: 8px; right: 8px; font: 600 10px/1 Inter, sans-serif; color: var(--muted); opacity: 0; transition: opacity .4s; }
+.conn.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- Marcador en vivo con momentum, timeline de rondas y alertas -->
+<div id="score" class="w panel">
+  <div class="sc-row">
+    <span class="sc-lbl">ALIADOS</span>
+    <span class="sc-num ally" id="sa">0</span>
+    <span class="sc-map" id="map">—</span>
+    <span class="sc-num enemy" id="se">0</span>
+    <span class="sc-lbl enemy">RIVALES</span>
+  </div>
+  <div class="momentum" id="mom"><div class="mid"></div><div class="fill" id="momFill"></div></div>
+  <div class="mom-cap" id="momCap"></div>
+  <div class="rounds" id="rounds"></div>
+  <div class="sc-foot">
+    <span class="wp" id="wp"></span>
+    <span>
+      <span class="badge cb" id="bCb">REMONTADA</span>
+      <span class="badge mp" id="bMp">MATCH POINT</span>
+      <span class="badge mpe" id="bMpe">MATCH POINT RIVAL</span>
+      <span class="badge ot" id="bOt">PRÓRROGA</span>
+    </span>
+  </div>
+  <div class="sc-sess" id="scSess"></div>
+</div>
+
+<!-- Rango + sesión del stream -->
+<div id="session" class="w panel">
+  <div class="rk">
+    <img id="rkIcon" alt="">
+    <div>
+      <div class="rk-name" id="rkName">SIN RANGO</div>
+      <div class="rk-bar"><div id="rkBar"></div></div>
+      <div class="rk-txt" id="rkTxt"></div>
+    </div>
+  </div>
+  <div class="ss">
+    <div><b id="wl">0-0</b><span>HOY</span></div>
+    <div><b id="rrNet">±0</b><span>RR</span></div>
+    <div class="streak" id="streak"><b>—</b><span>RACHA</span></div>
+  </div>
+  <div class="goal" id="goal"></div>
+</div>
+
+<!-- Tarjeta de fin de partida: resultado, título, stats y RR -->
+<div id="mvp" class="w panel">
+  <div class="mv-head" id="mvHead">
+    <div class="mv-res" id="mvRes">VICTORIA</div>
+    <div class="mv-meta" id="mvMeta"></div>
+  </div>
+  <div class="mv-body">
+    <img id="mvAgent" alt="">
+    <div>
+      <div class="mv-title" id="mvTitle"></div>
+      <div class="mv-sub" id="mvSub"></div>
+      <div class="mv-grid">
+        <div><b id="mvKda"></b><span>K / D / A</span></div>
+        <div><b id="mvAcs"></b><span>ACS</span></div>
+        <div><b id="mvHs"></b><span>HS%</span></div>
+        <div><b id="mvFk"></b><span>1ª KILLS</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="mv-rr">
+    <span><span class="slot" id="rrSlot">+0</span> <span class="sc-lbl">RR</span></span>
+    <span class="mv-rank"><img id="mvRankIcon" alt=""><span id="mvRank"></span></span>
+  </div>
+  <div class="promo" id="promo"><b id="promoTxt">¡SUBIDA!</b></div>
+</div>
+
+<!-- Contador de cola: se pone dramático cuanto más tarda -->
+<div id="queue" class="w panel gone">
+  <div class="q-lbl" id="qLbl">BUSCANDO PARTIDA</div>
+  <div class="q-time" id="qTime">0:00</div>
+  <div class="q-msg" id="qMsg"></div>
+  <div class="q-dots"><i></i><i></i><i></i></div>
+</div>
+
+<!-- Selección de agente: ficha del mapa y reacción al pick -->
+<div id="pregame" class="w panel gone">
+  <div class="pg-map" id="pgMap">
+    <div class="q-lbl">SELECCIÓN DE AGENTE</div>
+    <div class="pg-name" id="pgName">—</div>
+    <div class="pg-rec" id="pgRec"></div>
+    <div class="pg-best" id="pgBest"></div>
+    <div class="pg-drought" id="pgDrought"></div>
+  </div>
+  <div class="pg-pick" id="pgPick">
+    <div class="av empty" id="pgAv"></div>
+    <div>
+      <div class="pg-agent"><span id="pgAgent">ELIGIENDO…</span><span class="pg-state" id="pgState">PENSANDO</span></div>
+      <div class="pg-stats" id="pgStats"></div>
+      <div class="pg-exp" id="pgExp">PICK EXPERIMENTAL</div>
+    </div>
+  </div>
+</div>
+
+<!-- Avisos de reencuentros (carrusel) -->
+<div id="nemesis" class="w idle">
+  <div class="nm-head panel"><b id="nmTitle">REENCUENTROS</b><span class="nm-dots" id="nmDots"></span></div>
+  <div class="nm-stage" id="nmStage"></div>
+</div>
+
+<!-- Últimos mensajes del chat de Twitch (&twitch=canal) -->
+<div id="chat" class="w"><div class="ch-list" id="chList"></div></div>
+
+<!-- Avisos de evento: rachas, match point, cambio de lado… -->
+<div id="toast" class="w"></div>
+
+<div id="help" class="panel">
+  <h1>Overlays de RGVMonitor</h1>
+  <p>Añade en OBS una <b>Fuente de navegador</b> por widget con estas URLs. Deja el fondo transparente (es el predeterminado).</p>
+  <table>
+    <tr><th>Widget</th><th>URL</th><th>Tamaño</th></tr>
+    <tr><td>Contador de cola</td><td><a href="?w=queue&demo=1">/overlay?w=queue</a></td><td>420 × 200</td></tr>
+    <tr><td>Selección: mapa + pick</td><td><a href="?w=pregame&demo=1">/overlay?w=pregame</a></td><td>600 × 340</td></tr>
+    <tr><td>Marcador + momentum</td><td><a href="?w=score&demo=1">/overlay?w=score</a></td><td>600 × 220</td></tr>
+    <tr><td>Rango y sesión</td><td><a href="?w=session&demo=1">/overlay?w=session</a></td><td>370 × 220</td></tr>
+    <tr><td>Tarjeta fin de partida</td><td><a href="?w=mvp&demo=1">/overlay?w=mvp</a></td><td>660 × 360</td></tr>
+    <tr><td>Reencuentros</td><td><a href="?w=nemesis&demo=1">/overlay?w=nemesis</a></td><td>420 × 180</td></tr>
+    <tr><td>Avisos de evento</td><td><a href="?w=toast&demo=1">/overlay?w=toast</a></td><td>700 × 160</td></tr>
+    <tr><td>Chat de Twitch</td><td><a href="?w=chat&demo=1">/overlay?w=chat&amp;twitch=TU_CANAL</a></td><td>420 × 320</td></tr>
+    <tr><td>Todo junto</td><td><a href="?w=all&demo=1">/overlay?w=all</a></td><td>1920 × 1080</td></tr>
+  </table>
+  <p>Los enlaces abren el <b>modo demo</b> (<code>&amp;demo=1</code>) con una partida simulada. En OBS usa la URL sin <code>demo</code>.</p>
+  <p>Para <b>Todo</b> pon la fuente de OBS a <b>1920 × 1080</b> (OBS crea 800 × 600 por defecto): evita el minimapa, el marcador de arriba, el killfeed y las habilidades. Si lo quieres más pequeño, añade <code>&amp;scale=0.8</code>; con <code>&amp;zones=1</code> ves en rojo las zonas del HUD que no se tapan.</p>
+  <p>Nombres en reencuentros: por defecto solo el nombre sin #TAG · <code>&amp;names=full</code> con TAG · <code>&amp;names=off</code> ninguno (solo el agente). Quien juega en incógnito nunca sale con nombre.</p>
+  <p>Cuándo salen en partida: durante las <b>2 primeras rondas</b> · <code>&amp;nemrounds=4</code> para cambiarlo (<code>0</code> = no salen en partida, solo en la selección) · <code>&amp;nemevery=6</code> para que vuelvan una vez cada 6 rondas.</p>
+  <p>Chat: añade <code>&amp;twitch=tu_canal</code> (también en <b>Todo</b>). Lee el chat en modo anónimo, sin cuenta ni claves. Muestra los últimos 5 (<code>&amp;chatmax=3</code> para cambiarlo), cada mensaje se borra a los 60 s (<code>&amp;chatfade=0</code> para dejarlos) y se ocultan comandos (<code>!</code>) y bots conocidos (<code>&amp;chatbots=1</code> para verlos).</p>
+  <p>Opciones: <code>&amp;pin=1</code> deja la tarjeta de fin de partida siempre visible · <code>&amp;goal=ascendant 1</code> muestra un objetivo de rango en la sesión.</p>
+</div>
+
+<div class="conn" id="conn">sin conexión con RGVMonitor…</div>
+
+<script>
+(() => {
+  const qs = new URLSearchParams(location.search);
+  const widget = (qs.get('w') || '').toLowerCase();
+  const demo = qs.get('demo') === '1';
+  const pin = qs.get('pin') === '1';
+  const goal = qs.get('goal');
+  const namesMode = (qs.get('names') || 'short').toLowerCase();
+  const intParam = (name, fallback) => {
+    const v = parseInt(qs.get(name), 10);
+    return Number.isFinite(v) && v >= 0 ? v : fallback;
+  };
+  const NEM_ROUNDS = intParam('nemrounds', 2);
+  const NEM_EVERY = intParam('nemevery', 0);
+  const TWITCH = (qs.get('twitch') || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const CHAT_MAX = Math.max(1, intParam('chatmax', 5));
+  const CHAT_FADE = intParam('chatfade', 60);
+  const CHAT_BOTS = qs.get('chatbots') === '1';
+  const SILHOUETTE = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.6-4.6 4-7.2 8.5-7.2s7.9 2.6 8.5 7.2z"/></svg>';
+
+  // Avatar con respaldo: la silueta queda debajo y la imagen, si carga, la tapa.
+  function avatar(el, src) {
+    if (el.dataset.src === (src || '')) return;
+    el.dataset.src = src || '';
+    el.classList.toggle('empty', !src);
+    el.innerHTML = SILHOUETTE;
+    if (!src) return;
+    const img = new Image();
+    img.alt = '';
+    img.onerror = () => { img.remove(); el.classList.add('empty'); };
+    img.src = src;
+    el.appendChild(img);
+  }
+  const $ = id => document.getElementById(id);
+
+  if (!widget) { document.body.classList.add('help'); return; }
+  if (widget === 'all') {
+    document.body.classList.add('all');
+    // En OBS a 1920×1080 la escala es 1; con otro tamaño se encoge entero y se
+    // centra (sin deformar) en vez de quedarse pegado a la esquina.
+    const ui = parseFloat(qs.get('scale'));
+    if (ui > 0) document.body.style.setProperty('--ui', ui);
+    const fit = () => {
+      const f = Math.min(innerWidth / 1920, innerHeight / 1080);
+      const st = document.body.style;
+      st.setProperty('--fit', f);
+      st.setProperty('--dx', (innerWidth - 1920 * f) / 2 + 'px');
+      st.setProperty('--dy', (innerHeight - 1080 * f) / 2 + 'px');
+    };
+    fit();
+    addEventListener('resize', fit);
+    if (qs.get('zones') === '1') {
+      [['MINIMAPA', 16, 16, 410, 410], ['MARCADOR / TIEMPO', 560, 0, 800, 130],
+       ['KILLFEED', 1400, 60, 500, 360], ['VIDA / HABILIDADES / ARMAS', 560, 940, 800, 140]]
+        .forEach(([t, x, y, w, h]) => {
+          const z = document.createElement('div');
+          z.className = 'zone';
+          z.textContent = t;
+          Object.assign(z.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+          document.body.appendChild(z);
+        });
+    }
+  } else {
+    document.body.classList.add('single');
+    const el = $(widget);
+    if (el) el.classList.add('on');
+  }
+
+  let prev = null;
+
+  function render(s) {
+    renderLayout(s);
+    renderQueue(s);
+    renderPregame(s);
+    renderScore(s);
+    renderSession(s);
+    renderMvp(s);
+    renderNemesis(s);
+    renderToasts(s);
+    prev = s;
+  }
+
+  // ─── Qué se ve en cada fase ───
+  function renderLayout(s) {
+    document.body.dataset.state = s.state;
+    $('chat').classList.toggle('off', !TWITCH && !demo);
+    const inQueue = !!s.queue;
+    $('session').classList.toggle('off', s.state === 'INGAME');
+    $('nemesis').classList.toggle('off', !['PREGAME', 'INGAME'].includes(s.state));
+    const inPregame = s.state === 'PREGAME';
+    $('queue').classList.toggle('gone', !inQueue);
+    $('pregame').classList.toggle('gone', !inPregame || !s.pregame);
+    // En "todo" comparten hueco: cola, selección o marcador según la fase.
+    $('queue').classList.toggle('off', !inQueue);
+    $('pregame').classList.toggle('off', !inPregame);
+    // En "todo" el marcador solo en partida: fuera de ella ese hueco es de la sesión.
+    $('score').classList.toggle('off', s.state !== 'INGAME');
+  }
+
+  // ─── Contador de cola ───
+  const QUEUE_NAMES = { competitive: 'COMPETITIVO', unrated: 'NO COMPETITIVO', swiftplay: 'PARTIDA RÁPIDA',
+    spikerush: 'FIEBRE DE LA SPIKE', deathmatch: 'TODOS CONTRA TODOS', premier: 'PREMIER', hurm: 'DUELO POR EQUIPOS' };
+  const QUEUE_MSGS = [
+    [0, ['Calentando la mira…', 'Buscando rivales dignos', 'Repasando lineups']],
+    [120, ['Riot está pensando…', 'Buscando 9 almas valientes', '¿Alguien ha visto a mis rivales?']],
+    [300, ['ESTO YA ES PERSONAL', 'Los servidores tienen miedo', 'Se ha visto más rápido un Sage revivir']],
+    [600, ['¿Has probado a reiniciar?', 'Igual hoy no toca', 'El chat está envejeciendo']]
+  ];
+  let queueTimer = null, queueSince = null;
+  function renderQueue(s) {
+    const q = s.queue;
+    queueSince = q ? new Date(q.since).getTime() : null;
+    if (q) $('qLbl').textContent = 'BUSCANDO PARTIDA' + (QUEUE_NAMES[q.queueId] ? ` · ${QUEUE_NAMES[q.queueId]}` : '');
+    if (q && !queueTimer) { tickQueue(); queueTimer = setInterval(tickQueue, 1000); }
+    if (!q && queueTimer) { clearInterval(queueTimer); queueTimer = null; }
+  }
+  function tickQueue() {
+    if (queueSince == null) return;
+    const secs = Math.max(0, Math.floor((Date.now() - queueSince) / 1000));
+    $('qTime').textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    const stage = secs >= 600 ? 3 : secs >= 300 ? 2 : secs >= 120 ? 1 : 0;
+    const el = $('queue');
+    ['q1', 'q2', 'q3', 'q4'].forEach((c, i) => el.classList.toggle(c, i === stage));
+    const msgs = QUEUE_MSGS[stage][1];
+    $('qMsg').textContent = msgs[Math.floor(secs / 8) % msgs.length];
+  }
+
+  // ─── Selección de agente ───
+  function renderPregame(s) {
+    const g = s.pregame;
+    if (!g) return;
+    const before = prev && prev.pregame;
+    $('pgName').textContent = (g.map || '—').toUpperCase();
+    $('pgMap').style.backgroundImage = g.mapSplash ? `url("${g.mapSplash}")` : '';
+
+    const m = g.mapStats;
+    const best = $('pgBest');
+    const drought = $('pgDrought');
+    best.innerHTML = '';
+    drought.textContent = '';
+    drought.className = 'pg-drought';
+    if (!m || m.games === 0) {
+      $('pgRec').innerHTML = 'Sin partidas recientes en este mapa';
+    } else {
+      $('pgRec').innerHTML = `Tus últimas aquí: <b>${m.wins}-${m.games - m.wins}</b> · <b>${m.winRate}%</b> de victorias`;
+      if (m.bestAgentId && g.bestAgent) {
+        best.innerHTML = `${g.bestAgentIcon ? `<img src="${g.bestAgentIcon}" alt="">` : ''}
+          <span>Tu mejor agente aquí: <b style="color:var(--ink)">${esc(g.bestAgent)}</b> (${m.bestAgentWins}-${m.bestAgentGames - m.bestAgentWins})</span>`;
+      }
+      const days = m.lastWin ? daysAgo(m.lastWin) : null;
+      if (m.lastWin == null && m.games >= 2) drought.textContent = `NUNCA HAS GANADO AQUÍ (0-${m.games}) 💀`;
+      else if (days != null && days >= 14) drought.textContent = `NO GANAS AQUÍ DESDE HACE ${days} DÍAS 💀`;
+      else if (days != null && m.winRate >= 60) { drought.textContent = 'TU MAPA 😎'; drought.classList.add('good'); }
+    }
+
+    const pick = $('pgPick');
+    const agentChanged = !before || before.agent !== g.agent;
+    const justLocked = g.locked && !(before && before.locked && !agentChanged);
+    $('pgAgent').textContent = g.agent ? g.agent.toUpperCase() : 'ELIGIENDO…';
+    avatar($('pgAv'), g.agentIcon);
+    const state = $('pgState');
+    state.textContent = g.locked ? 'BLOQUEADO' : g.agent ? 'DUDANDO' : 'PENSANDO';
+    state.className = 'pg-state' + (g.locked ? ' locked' : '');
+    pick.classList.toggle('hover', !g.locked);
+    if (justLocked && prev) restart(pick, 'lock');
+
+    const a = g.agentStats;
+    const exp = $('pgExp');
+    if (!g.agent || !a) {
+      $('pgStats').textContent = '';
+      exp.classList.remove('show');
+    } else if (a.games === 0) {
+      $('pgStats').textContent = 'Sin partidas con este agente en tus últimas competitivas';
+      exp.textContent = 'PICK EXPERIMENTAL';
+      exp.classList.add('show');
+    } else {
+      const isBest = m && m.bestAgentId && g.bestAgent === g.agent;
+      $('pgStats').innerHTML = `<b>${a.games}</b> ${a.games === 1 ? 'partida' : 'partidas'} · <b>${a.winRate}%</b> victorias · K/D <b>${a.kd.toFixed(2)}</b> · ACS <b>${a.acs}</b>`
+        + (isBest ? ' · <b style="color:var(--teal)">tu mejor pick aquí ✅</b>' : '');
+      exp.textContent = 'PICK EXPERIMENTAL';
+      exp.classList.toggle('show', a.experimental);
+    }
+    if (agentChanged && g.agent && prev) restart($('pgAgent'), 'pop');
+  }
+
+  function daysAgo(iso) { return Math.floor((Date.now() - new Date(iso)) / 864e5); }
+
+  // ─── Marcador ───
+  function renderScore(s) {
+    const p = prev;
+    $('map').textContent = (s.map || '—').toUpperCase();
+    setNum('sa', s.score.ally, p && p.score.ally);
+    setNum('se', s.score.enemy, p && p.score.enemy);
+
+    const m = s.momentum || 0;
+    const fill = $('momFill');
+    fill.style.width = (Math.abs(m) * 50) + '%';
+    fill.style.left = m >= 0 ? '50%' : (50 - Math.abs(m) * 50) + '%';
+    fill.style.background = m >= 0 ? 'var(--teal)' : 'var(--red)';
+    const mom = $('mom');
+    mom.classList.toggle('fire', m >= .7);
+    mom.classList.toggle('frost', m <= -.7);
+    if (m >= .7 || m <= -.7) fill.style.background = '';
+    $('momCap').textContent = m >= .7 ? 'EN LLAMAS' : m <= -.7 ? 'CONGELADOS' : m >= .35 ? 'CON INERCIA' : m <= -.35 ? 'LES CUESTA' : '';
+
+    const rounds = s.rounds || '';
+    const box = $('rounds');
+    const had = box.children.length;
+    if (rounds.length < had) box.innerHTML = '';
+    for (let i = box.children.length; i < rounds.length; i++) {
+      const d = document.createElement('div');
+      d.className = 'rd ' + (rounds[i] === '?' ? '' : rounds[i]) + (i === 12 ? ' half' : '') + (p ? ' new' : '');
+      box.appendChild(d);
+    }
+
+    $('wp').innerHTML = s.winProb != null ? `Prob. de victoria <b>${Math.round(s.winProb)}%</b>` : '';
+    $('bMp').classList.toggle('show', s.phase === 'matchpoint');
+    $('bMpe').classList.toggle('show', s.phase === 'matchpoint_enemy');
+    $('bOt').classList.toggle('show', s.phase === 'overtime');
+    $('bCb').classList.toggle('show', !!s.comeback && !s.phase);
+
+    // Resumen de la sesión dentro del marcador (en "todo", durante la partida).
+    const ss = s.session, r = s.rank, n = ss.streak;
+    $('scSess').innerHTML = (r && r.icon ? `<img src="${r.icon}" alt="">` : '')
+      + `HOY <b>${ss.wins}-${ss.losses}</b> · <b class="${ss.rrNet > 0 ? 'pos' : ss.rrNet < 0 ? 'neg' : ''}">${ss.rrNet > 0 ? '+' : ''}${ss.rrNet}</b> RR`
+      + (n ? ` · RACHA <b>${n > 0 ? n + 'W' : -n + 'L'}</b>${n >= 3 ? ' 🔥' : n <= -3 ? ' ⛈' : ''}` : '');
+    $('score').classList.toggle('hot', s.phase === 'matchpoint' || s.phase === 'overtime');
+    $('score').classList.toggle('cold', s.phase === 'matchpoint_enemy');
+  }
+
+  function setNum(id, v, before) {
+    const el = $(id);
+    el.textContent = v;
+    if (before != null && before !== v) restart(el, 'pop');
+  }
+
+  function restart(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  // ─── Sesión ───
+  function renderSession(s) {
+    const r = s.rank;
+    if (r) {
+      $('rkName').textContent = r.name.toUpperCase();
+      if (r.icon) $('rkIcon').src = r.icon;
+      const pct = r.threshold ? Math.min(100, r.rr / r.threshold * 100) : 100;
+      $('rkBar').style.width = pct + '%';
+      $('rkTxt').textContent = r.toRankUp != null
+        ? `${r.rr} RR · faltan ${r.toRankUp} para subir` + (r.toRankUp <= 20 ? ' · ¡a una victoria!' : '')
+        : `${r.rr} RR`;
+    }
+    const ss = s.session;
+    $('wl').textContent = `${ss.wins}-${ss.losses}`;
+    const rr = $('rrNet');
+    rr.textContent = (ss.rrNet > 0 ? '+' : ss.rrNet < 0 ? '' : '±') + ss.rrNet;
+    rr.className = ss.rrNet > 0 ? 'pos' : ss.rrNet < 0 ? 'neg' : '';
+    if (prev && prev.session.rrNet !== ss.rrNet) restart(rr, 'pop');
+
+    const st = $('streak');
+    const n = ss.streak;
+    st.querySelector('b').textContent = n === 0 ? '—' : (n > 0 ? `${n}W` : `${-n}L`) + (n >= 3 ? ' 🔥' : n <= -3 ? ' ⛈' : '');
+    st.classList.toggle('fire', n >= 3);
+    st.classList.toggle('storm', n <= -3);
+
+    $('goal').textContent = goal ? `Objetivo del stream: ${goal.toUpperCase()}` : '';
+  }
+
+  // ─── Tarjeta de fin de partida ───
+  let hideTimer = null;
+  function renderMvp(s) {
+    const m = s.lastMatch;
+    const card = $('mvp');
+    if (!m) { card.classList.remove('show'); return; }
+    const isNew = !prev || !prev.lastMatch || prev.lastMatch.matchId !== m.matchId;
+    if (!isNew && !(pin && !card.classList.contains('show'))) return;
+    // Al conectar no repetimos la animación de una partida ya vista (salvo pin).
+    if (!prev && !pin && !demo) return;
+
+    const res = $('mvRes');
+    res.textContent = m.won === true ? 'VICTORIA' : m.won === false ? 'DERROTA' : 'EMPATE';
+    res.className = 'mv-res ' + (m.won === true ? 'win' : m.won === false ? 'loss' : '');
+    $('mvMeta').textContent = `${m.allyRounds} - ${m.enemyRounds} · ${(m.map || '').toUpperCase()} · ${(m.agent || '').toUpperCase()}`;
+    $('mvHead').style.backgroundImage = m.mapSplash ? `url("${m.mapSplash}")` : '';
+    if (m.agentIcon) $('mvAgent').src = m.agentIcon;
+    $('mvTitle').textContent = m.title.toUpperCase() + (m.isMatchMvp && m.title !== 'MVP del partido' ? ' · MVP' : '');
+    $('mvSub').textContent = m.subtitle;
+    $('mvKda').textContent = `${m.kills}/${m.deaths}/${m.assists}`;
+    $('mvAcs').textContent = m.acs;
+    $('mvHs').textContent = m.hsPercent + '%';
+    $('mvFk').textContent = m.firstKills;
+
+    const avg = s.sessionAvg;
+    const kd = m.deaths > 0 ? m.kills / m.deaths : m.kills;
+    trend('mvAcs', avg && m.acs - avg.acs, 10);
+    trend('mvHs', avg && m.hsPercent - avg.hs, 3);
+    trend('mvKda', avg && kd - avg.kd, .15);
+
+    const r = s.rank;
+    if (r) {
+      $('mvRank').textContent = r.name.toUpperCase();
+      if (r.icon) $('mvRankIcon').src = r.icon;
+    }
+
+    card.classList.remove('hide');
+    restart(card, 'show');
+    spinRr(m.rrEarned);
+
+    const promo = $('promo');
+    promo.classList.remove('show', 'down');
+    if (r && r.change) {
+      $('promoTxt').textContent = r.change > 0 ? `¡${r.name.toUpperCase()}!` : 'BAJADA…';
+      if (r.change < 0) promo.classList.add('down');
+      setTimeout(() => restart(promo, 'show'), 1900);
+    }
+
+    clearTimeout(hideTimer);
+    if (!pin) hideTimer = setTimeout(() => { card.classList.add('hide'); card.classList.remove('show'); }, 25000);
+  }
+
+  function trend(id, diff, tolerance) {
+    const el = $(id);
+    el.classList.remove('up', 'down');
+    if (diff == null || diff === false) return;
+    if (diff > tolerance) el.classList.add('up');
+    else if (diff < -tolerance) el.classList.add('down');
+  }
+
+  // Tragaperras: los números giran y se paran en el RR final.
+  function spinRr(final) {
+    const el = $('rrSlot');
+    if (final == null) { el.textContent = '—'; el.className = 'slot'; return; }
+    el.className = 'slot spin';
+    const start = performance.now();
+    const tick = now => {
+      const t = now - start;
+      if (t < 1600) {
+        el.textContent = (Math.random() < .5 ? '-' : '+') + Math.floor(Math.random() * 30);
+        requestAnimationFrame(tick);
+      } else {
+        el.textContent = (final > 0 ? '+' : '') + final;
+        el.className = 'slot pop ' + (final > 0 ? 'pos' : final < 0 ? 'neg' : '');
+      }
+    };
+    requestAnimationFrame(tick);
+  }
+
+  // ─── Reencuentros (carrusel) ───
+  const NM_CARD = 6000;
+  const nm = { list: [], idx: -1, timer: null, until: 0, sig: '', card: null };
+
+  function renderNemesis(s) {
+    const list = s.nemesis || [];
+    // La identidad de la lista no cambia porque alguien elija agente.
+    const sig = list.map(n => (n.name || '') + n.lastAgent + n.times + n.isAlly).join('|');
+    const changed = sig !== nm.sig;
+    nm.list = list;
+    nm.sig = sig;
+    if (changed) nm.idx = -1;
+    $('nmTitle').textContent = list.length ? `REENCUENTROS · ${list.length}` : 'REENCUENTROS';
+    if (nm.card && list[nm.idx]) fillNem(nm.card, list[nm.idx]); // p.ej. acaba de elegir agente
+
+    if (!list.length || (!pin && !['PREGAME', 'INGAME'].includes(s.state))) return stopNem();
+    if (pin || s.state === 'PREGAME') return runNem(Infinity);
+
+    // En partida: sin parar durante las primeras rondas (&nemrounds=, 2 por defecto)
+    // y, si se pide, una vuelta cada N rondas (&nemevery=, desactivado por defecto).
+    const total = s.score.ally + s.score.enemy;
+    const before = prev ? prev.score.ally + prev.score.enemy : total;
+    if (total < NEM_ROUNDS) return runNem(Infinity);
+    if (NEM_EVERY > 0 && total !== before && total % NEM_EVERY === 0) return runNem(NM_CARD * list.length);
+    // Se acabaron las rondas de presentación: termina la tarjeta actual y se va.
+    if (nm.until === Infinity) nm.until = Date.now();
+  }
+
+  function runNem(ms) {
+    nm.until = ms === Infinity ? Infinity : Math.max(nm.until === Infinity ? 0 : nm.until, Date.now() + ms);
+    $('nemesis').classList.remove('idle');
+    if (nm.timer) return;
+    nextNem();
+    nm.timer = setInterval(nextNem, NM_CARD);
+  }
+
+  function stopNem() {
+    clearInterval(nm.timer);
+    nm.timer = null;
+    nm.until = 0;
+    $('nemesis').classList.add('idle');
+  }
+
+  function nextNem() {
+    if (Date.now() >= nm.until || !nm.list.length) return stopNem();
+    nm.idx = (nm.idx + 1) % nm.list.length;
+    const stage = $('nmStage');
+    if (nm.card) {
+      const old = nm.card;
+      old.classList.add('leave');
+      setTimeout(() => old.remove(), 400);
+    }
+    const n = nm.list[nm.idx];
+    const el = document.createElement('div');
+    el.className = 'nm panel in' + (n.isAlly ? ' ally' : '');
+    el.innerHTML = '<div class="av empty"></div><div class="nm-body"></div><div class="nm-bar"></div>';
+    el.style.setProperty('--t', NM_CARD + 'ms');
+    fillNem(el, n);
+    stage.appendChild(el);
+    nm.card = el;
+    $('nmDots').innerHTML = nm.list.map((_, i) => `<i class="${i === nm.idx ? 'on' : ''}"></i>`).join('');
+  }
+
+  function fillNem(el, n) {
+    const tag = n.isAlly
+      ? (n.wasAlly ? 'OTRA VEZ JUNTOS' : 'AHORA DE TU LADO')
+      : (n.wasAlly ? 'CAMBIO DE BANDO' : 'REVANCHA');
+
+    // Nombre: el real (sin #TAG salvo &names=full) o, si no se puede mostrar, por qué.
+    const name = !n.name || namesMode === 'off' ? null : namesMode === 'full' ? n.name : n.name.split('#')[0];
+    const who = name ? esc(name) : n.name ? 'Nombre oculto' : 'Jugador en incógnito';
+    const agent = n.agent ? esc(n.agent) : 'eligiendo…';
+
+    el.querySelector('.nm-body').innerHTML = `
+      <div class="nm-tag">${tag}</div>
+      <div class="nm-name">${who}<span class="nm-agent">${agent}</span></div>
+      <div class="nm-txt">${nemStory(n).join('<br>')}</div>`;
+    avatar(el.querySelector('.av'), n.agentIcon);
+  }
+
+  // Dos frases cortas (una línea cada una) con la historia con esa persona.
+  // El agente de la última vez solo se nombra si no es el que lleva ahora.
+  function nemStory(n) {
+    const when = ago(n.lastSeen);
+    const count = n.times === 1 ? 'una vez' : `<b>${n.times} veces</b>`;
+    const was = n.lastAgent && n.lastAgent !== n.agent ? ` · jugó ${esc(n.lastAgent)}` : '';
+    if (!n.isAlly && !n.wasAlly) return [`Ya se enfrentaron ${count}.`, `${cap(when)}${was}.`];
+    if (!n.isAlly && n.wasAlly) return [`Fueron compañeros ${when}${was}.`, 'Hoy les toca enfrentarse.'];
+    if (n.wasAlly) return [`Ya hicieron equipo ${count}.`, `${cap(when)}${was}.`];
+    return [`Fue tu rival ${when}${was}.`, 'Hoy juega de tu lado.'];
+  }
+
+  // ─── Avisos de evento ───
+  const toasts = [];
+  let toastBusy = false;
+  function toast(text, sub, kind) {
+    // Solo en su propio widget o en "todo": no se cuela en los demás sueltos.
+    if (widget !== 'toast' && widget !== 'all') return;
+    toasts.push({ text, sub, kind });
+    if (!toastBusy) nextToast();
+  }
+  function nextToast() {
+    const t = toasts.shift();
+    const box = $('toast');
+    if (!t) { toastBusy = false; box.classList.remove('on'); return; }
+    toastBusy = true;
+    box.classList.add('on');
+    box.innerHTML = `<div class="ts ${t.kind || ''}"><b>${t.text}</b>${t.sub ? `<span>${t.sub}</span>` : ''}</div>`;
+    setTimeout(nextToast, 3000);
+  }
+
+  function renderToasts(s) {
+    const p = prev;
+    if (!p) return;
+    if (p.queue && !s.queue && s.state === 'PREGAME') {
+      const secs = Math.max(0, Math.round((Date.now() - new Date(p.queue.since)) / 1000));
+      toast('¡PARTIDA ENCONTRADA!', `tras ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} en cola`, 'good');
+    }
+    if (s.state !== 'INGAME') return;
+
+    const rounds = s.rounds || '', before = p.rounds || '';
+    if (rounds.length > before.length) {
+      const last = rounds[rounds.length - 1];
+      let run = 0;
+      for (let i = rounds.length - 1; i >= 0 && rounds[i] === last; i--) run++;
+      if (last === 'W' && run >= 3 && run % 2 === 1) toast(`¡${run} RONDAS SEGUIDAS!`, 'el equipo está on fire 🔥', 'good');
+      if (last === 'L' && run === 3) toast('3 RONDAS EN CONTRA', 'toca reaccionar', 'bad');
+      const total = s.score.ally + s.score.enemy;
+      if (total === 12 && !s.phase) toast('CAMBIO DE LADO', `${s.score.ally} - ${s.score.enemy} al descanso`, 'gold');
+    }
+    if (s.phase !== p.phase) {
+      if (s.phase === 'matchpoint') toast('MATCH POINT', 'una ronda para ganar', 'gold');
+      if (s.phase === 'matchpoint_enemy') toast('MATCH POINT RIVAL', 'no se puede fallar', 'bad');
+      if (s.phase === 'overtime') toast('PRÓRROGA', 'muerte súbita', 'gold');
+    }
+    if (s.comeback && !p.comeback) toast('¡REMONTADA EN MARCHA!', `venían ${s.maxDeficit} rondas por delante`, 'good');
+  }
+
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+  // "hace un rato", "ayer", "hace 3 semanas"… como lo diría una persona.
+  function ago(iso) {
+    const mins = Math.max(0, (Date.now() - new Date(iso)) / 60000);
+    if (mins < 60) return 'hace un rato';
+    const h = Math.round(mins / 60);
+    if (h < 24) return h === 1 ? 'hace una hora' : `hace ${h} horas`;
+    const d = Math.floor(h / 24);
+    if (d === 1) return 'ayer';
+    if (d < 7) return `hace ${d} días`;
+    if (d < 30) { const w = Math.round(d / 7); return w === 1 ? 'hace una semana' : `hace ${w} semanas`; }
+    if (d < 365) { const m = Math.round(d / 30); return m === 1 ? 'hace un mes' : `hace ${m} meses`; }
+    return 'hace más de un año';
+  }
+
+
+  function esc(t) {
+    return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ─── Conexión con la app ───
+  function connect() {
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+    let alive = false;
+    ws.onopen = () => { alive = true; $('conn').classList.remove('show'); };
+    ws.onmessage = e => { try { render(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+    ws.onclose = () => {
+      $('conn').classList.add('show');
+      setTimeout(connect, alive ? 1000 : 3000);
+    };
+  }
+
+  // ─── Modo demo: partida simulada con remontada, fin de partida y subida ───
+  function runDemo() {
+    const icon = t => `https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/${t}/smallicon.png`;
+    const agentIcon = id => `https://media.valorant-api.com/agents/${id}/displayicon.png`;
+    const jett = 'add6443a-41bd-e414-f6ad-e58d267f4e95';
+    const sage = '569fdd95-4d10-43ab-ca70-79becc718b46';
+    const reyna = 'a3bfb853-43b2-7238-a4f1-ad90e9e46bcc';
+    const now = Date.now();
+    const base = {
+      seq: 0, state: 'INGAME', map: 'Ascent', mapSplash: '', score: { ally: 0, enemy: 0, known: true },
+      rounds: '', momentum: 0, phase: '', comeback: false, maxDeficit: 0, winProb: 47,
+      rank: { tier: 20, name: 'Diamond 3', rr: 86, threshold: 100, toRankUp: 14, icon: icon(20), change: 0 },
+      session: { wins: 2, losses: 1, draws: 0, rrNet: 21, streak: 1, bestAcs: 241 },
+      lastMatch: null, sessionAvg: null, queue: null, pregame: null,
+      nemesis: [
+        { name: 'Kurai#EUW', agent: 'Jett', agentIcon: agentIcon(jett), lastAgent: 'Jett', times: 3, lastSeen: new Date(now - 2 * 864e5).toISOString(), wasAlly: false, isAlly: false },
+        { name: null, agent: 'Reyna', agentIcon: agentIcon(reyna), lastAgent: 'Reyna', times: 1, lastSeen: new Date(now - 5 * 36e5).toISOString(), wasAlly: true, isAlly: false },
+        { name: 'sopita#1234', agent: 'Sage', agentIcon: agentIcon(sage), lastAgent: 'Killjoy', times: 2, lastSeen: new Date(now - 26 * 6e4).toISOString(), wasAlly: false, isAlly: true }
+      ]
+    };
+    const s = JSON.parse(JSON.stringify(base));
+    const nemesis = s.nemesis;
+    // En selección solo se ve a tu equipo, y al principio nadie ha elegido agente.
+    const allyNemesis = picked => nemesis.filter(n => n.isAlly).map(n => picked ? n : { ...n, agent: '', agentIcon: '' });
+    const splash = 'https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/splash.png';
+    const mapStats = { games: 6, wins: 2, winRate: 33, bestAgentId: jett, bestAgentGames: 3, bestAgentWins: 2,
+      lastPlayed: new Date(now - 3 * 864e5).toISOString(), lastWin: new Date(now - 23 * 864e5).toISOString() };
+    const card = (agent, icon, locked, stats) => ({ map: 'Ascent', mapSplash: splash, mapStats,
+      bestAgent: 'Jett', bestAgentIcon: agentIcon(jett), agent, agentIcon: icon, locked, agentStats: stats });
+    const steps = [
+      // Cola: arranca a 4:52 para ver cómo se pone dramático al pasar de 5:00.
+      [0, () => Object.assign(s, { state: 'MENUS', nemesis: [], score: { ally: 0, enemy: 0, known: false },
+        queue: { since: new Date(Date.now() - 292e3).toISOString(), queueId: 'competitive' } })],
+      [9000, () => Object.assign(s, { state: 'PREGAME', queue: null, nemesis: allyNemesis(false),
+        pregame: card('', '', false, null) })],
+      [11500, () => { s.pregame = card('Reyna', agentIcon(reyna), false,
+        { games: 1, wins: 0, winRate: 0, kd: 0.71, acs: 164, lastPlayed: null, experimental: true }); }],
+      [13000, () => { s.nemesis = allyNemesis(true); }],
+      [14500, () => { s.pregame = card('Jett', agentIcon(jett), false,
+        { games: 9, wins: 6, winRate: 67, kd: 1.31, acs: 248, lastPlayed: null, experimental: false }); }],
+      [16500, () => { s.pregame.locked = true; }],
+      [20000, () => Object.assign(s, { state: 'INGAME', pregame: null, nemesis,
+        score: { ally: 0, enemy: 0, known: true }, rounds: '' })]
+    ];
+    steps.forEach(([at, step]) => setTimeout(() => { step(); render(clone(s)); }, at));
+    setTimeout(startGame, 20500);
+  }
+
+  function startGame() {
+    const s = clone(prev);
+    let i = 0, a = 0, e = 0, rounds = '', maxDef = 0;
+    const seq = 'LLWLWLLLWLLWWWWWWWWLLLWLWW'.split('');
+    const icon = t => `https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/${t}/smallicon.png`;
+    const agentIcon = id => `https://media.valorant-api.com/agents/${id}/displayicon.png`;
+    const jett = 'add6443a-41bd-e414-f6ad-e58d267f4e95';
+    const momentum = r => {
+      const k = r.slice(-6); let t = 0, w = 0;
+      k.split('').forEach((c, j) => { t += (c === 'W' ? 1 : -1) * (j + 1); w += j + 1; });
+      return w ? +(t / w).toFixed(2) : 0;
+    };
+    const phase = (x, y) => x >= 12 && y >= 12 ? 'overtime' : x === 12 && y < 12 ? 'matchpoint' : y === 12 && x < 12 ? 'matchpoint_enemy' : '';
+    const timer = setInterval(() => {
+      if (a >= 13 && a - e >= 2 || e >= 13 && e - a >= 2) {
+        clearInterval(timer);
+        s.state = 'MENUS';
+        s.lastMatch = {
+          matchId: 'demo', won: true, allyRounds: a, enemyRounds: e, map: 'Ascent',
+          mapSplash: 'https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/splash.png',
+          agent: 'Jett', agentIcon: agentIcon(jett), kills: 27, deaths: 15, assists: 6, acs: 288, hsPercent: 31,
+          firstKills: 6, rrEarned: 23, rrAfter: 9, tierAfter: 21, rankIconAfter: icon(21),
+          title: 'MVP del partido', subtitle: 'El mejor ACS de los 10 (288)', isMatchMvp: true
+        };
+        s.sessionAvg = { acs: 221, kd: 1.05, hs: 24 };
+        s.session = { wins: 3, losses: 1, draws: 0, rrNet: 44, streak: 2, bestAcs: 288 };
+        s.rank = { tier: 21, name: 'Ascendant 1', rr: 9, threshold: 100, toRankUp: 91, icon: icon(21), change: 1 };
+        render(clone(s));
+        setTimeout(runDemoAgain, 32000);
+        return;
+      }
+      const r = seq[i++] || (Math.random() < .55 ? 'W' : 'L');
+      if (r === 'W') a++; else e++;
+      rounds += r;
+      maxDef = Math.max(maxDef, e - a);
+      s.score = { ally: a, enemy: e, known: true };
+      s.rounds = rounds;
+      s.momentum = momentum(rounds);
+      s.phase = phase(a, e);
+      s.comeback = maxDef >= 4 && a >= e - 1;
+      s.maxDeficit = maxDef;
+      s.winProb = Math.max(5, Math.min(95, 47 + (a - e) * 6));
+      render(clone(s));
+    }, 1300);
+  }
+  function runDemoAgain() { prev = null; $('rounds').innerHTML = ''; runDemo(); }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  // ─── Chat de Twitch ───
+  // IRC por WebSocket con usuario anónimo (justinfan): solo lectura, sin cuenta.
+  const BOTS = new Set(['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'sery_bot']);
+
+  function connectChat() {
+    if (!TWITCH) return;
+    const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+    ws.onopen = () => {
+      ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+      ws.send('PASS SCHMOOPIIE');
+      ws.send('NICK justinfan' + Math.floor(10000 + Math.random() * 80000));
+      ws.send('JOIN #' + TWITCH);
+    };
+    ws.onmessage = e => e.data.split('\r\n').forEach(line => {
+      if (line.startsWith('PING')) return ws.send('PONG :tmi.twitch.tv');
+      const m = line.match(/^(?:@(\S+) )?:(\S+?)(?:!\S+)? (\S+) #\S+(?: :(.*))?$/);
+      if (!m) return;
+      const tags = Object.fromEntries((m[1] || '').split(';').map(kv => kv.split('=')));
+      const login = m[2].toLowerCase();
+      if (m[3] === 'PRIVMSG') addChat(tags, login, m[4] || '');
+      // Al entrar en el canal: aviso corto para saber que funciona aunque nadie escriba.
+      if (m[3] === 'ROOMSTATE' && !ws.announced) {
+        ws.announced = true;
+        chatNotice(`💬 Chat de ${TWITCH} conectado`);
+      }
+      // Moderación: si borran un mensaje o banean a alguien, desaparece también aquí.
+      if (m[3] === 'CLEARMSG') document.querySelector(`.ch[data-id="${CSS.escape(tags['target-msg-id'] || '')}"]`)?.remove();
+      if (m[3] === 'CLEARCHAT') {
+        const who = (m[4] || '').toLowerCase();
+        document.querySelectorAll(who ? `.ch[data-user="${CSS.escape(who)}"]` : '.ch').forEach(el => el.remove());
+      }
+    });
+    ws.onclose = () => setTimeout(connectChat, 3000);
+  }
+
+  function addChat(tags, login, text) {
+    const action = text.startsWith('\u0001ACTION ');
+    if (action) text = text.slice(8).replace(/\u0001$/, '');
+    if (!CHAT_BOTS && (BOTS.has(login) || text.startsWith('!'))) return;
+
+    const el = document.createElement('div');
+    el.className = 'ch';
+    el.dataset.id = tags.id || '';
+    el.dataset.user = login;
+    const color = /^#[0-9a-f]{6}$/i.test(tags.color || '') ? tags.color : '#8fd3ff';
+    el.style.borderLeftColor = color;
+    const name = esc((tags['display-name'] || login).replace(/\\s/g, ' '));
+    el.innerHTML = `<b style="color:${color}">${name}</b><span${action ? ' style="font-style:italic"' : ''}>${withEmotes(text, tags.emotes)}</span>`;
+
+    const list = $('chList');
+    list.appendChild(el);
+    while (list.children.length > CHAT_MAX) list.firstElementChild.remove();
+    if (CHAT_FADE > 0) setTimeout(() => {
+      el.classList.add('old');
+      setTimeout(() => el.remove(), 700);
+    }, CHAT_FADE * 1000);
+  }
+
+  function chatNotice(text) {
+    const el = document.createElement('div');
+    el.className = 'ch sys';
+    el.textContent = text;
+    $('chList').appendChild(el);
+    setTimeout(() => { el.classList.add('old'); setTimeout(() => el.remove(), 700); }, 8000);
+  }
+
+  // Twitch da las posiciones de los emotes en caracteres: "25:0-4,12-16/1902:6-10".
+  function withEmotes(text, emotes) {
+    const chars = Array.from(text);
+    const spots = [];
+    (emotes || '').split('/').filter(Boolean).forEach(e => {
+      const [id, ranges] = e.split(':');
+      (ranges || '').split(',').forEach(r => {
+        const [a, b] = r.split('-').map(Number);
+        if (Number.isFinite(a) && Number.isFinite(b)) spots.push({ id, a, b });
+      });
+    });
+    spots.sort((x, y) => x.a - y.a);
+    let out = '', i = 0;
+    for (const sp of spots) {
+      if (sp.a < i) continue;
+      out += esc(chars.slice(i, sp.a).join(''));
+      const alt = esc(chars.slice(sp.a, sp.b + 1).join(''));
+      out += `<img src="https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(sp.id)}/default/dark/2.0" alt="${alt}">`;
+      i = sp.b + 1;
+    }
+    return out + esc(chars.slice(i).join(''));
+  }
+
+  // En demo, mensajes de ejemplo (el chat real necesita &twitch=canal).
+  function demoChat() {
+    const lines = [['sopita', '#17e5b0', 'vamos que se puede'], ['Kurai_fan', '#ff4655', 'ese ace estuvo limpio'],
+      ['mod_rgz', '#f5c542', 'recuerden seguir el canal 💜'], ['n00bmaster', '#8fd3ff', 'jett diff jaja'],
+      ['luna', '#c77dff', 'qué remontada'], ['pepe', '#ff9f1c', 'GG']];
+    let k = 0;
+    setInterval(() => {
+      const [n, c, t] = lines[k++ % lines.length];
+      addChat({ 'display-name': n, color: c, id: String(k) }, n.toLowerCase(), t);
+    }, 2600);
+  }
+
+  if (TWITCH && !demo) connectChat();
+  else if (demo && (widget === 'chat' || widget === 'all')) demoChat();
+
+  if (demo) runDemo(); else connect();
+})();
+</script>
+</body>
+</html>

@@ -11,4 +11,8 @@
     <InternalsVisibleTo Include="RGVMonitor.Core.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Overlay\overlay.html" LogicalName="RGVMonitor.Core.Overlay.overlay.html" />
+  </ItemGroup>
+
 </Project>

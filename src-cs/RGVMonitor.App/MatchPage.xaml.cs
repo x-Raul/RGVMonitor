@@ -59,6 +59,7 @@ public sealed partial class MatchPage : Page
         }
         _copyToastTimer.Stop();
         CopyToast.IsOpen = false;
+        StopRadar();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -69,8 +70,98 @@ public sealed partial class MatchPage : Page
 
     private void OnPlayersChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateEmptyState();
 
-    private void UpdateEmptyState() =>
-        EmptyState.Visibility = ViewModel?.Players.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+    private void UpdateEmptyState()
+    {
+        var empty = !(ViewModel?.Players.Count > 0);
+        EmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        if (empty) StartRadar();
+        else StopRadar();
+    }
+
+    // Estado vacío "vivo": anillos de radar escalonados, núcleo que respira, icono que flota
+    // y tres puntos que se encienden en secuencia. Solo corre mientras el estado vacío se ve.
+    private Storyboard? _radar;
+
+    private void StartRadar()
+    {
+        if (_radar is not null) return;
+        if (!new Windows.UI.ViewManagement.UISettings().AnimationsEnabled) return; // respeta "efectos de animación" de Windows
+
+        const int ringMs = 2700;
+        var sb = new Storyboard();
+        var rings = new[] { RadarRing1, RadarRing2, RadarRing3 };
+        for (var i = 0; i < rings.Length; i++)
+        {
+            var begin = i * ringMs / rings.Length;
+            AddLoop(sb, rings[i], "(UIElement.RenderTransform).(ScaleTransform.ScaleX)", 1, 1.9, begin, ringMs);
+            AddLoop(sb, rings[i], "(UIElement.RenderTransform).(ScaleTransform.ScaleY)", 1, 1.9, begin, ringMs);
+            AddLoop(sb, rings[i], "Opacity", 0.55, 0, begin, ringMs);
+        }
+
+        AddPingPong(sb, RadarCore, "(UIElement.RenderTransform).(ScaleTransform.ScaleX)", 1, 1.06, 1350);
+        AddPingPong(sb, RadarCore, "(UIElement.RenderTransform).(ScaleTransform.ScaleY)", 1, 1.06, 1350);
+        AddPingPong(sb, RadarIcon, "(UIElement.RenderTransform).(TranslateTransform.Y)", 2, -3, 1600);
+
+        var dots = new[] { RadarDot1, RadarDot2, RadarDot3 };
+        for (var i = 0; i < dots.Length; i++)
+        {
+            var anim = new DoubleAnimationUsingKeyFrames
+            {
+                RepeatBehavior = RepeatBehavior.Forever,
+                BeginTime = System.TimeSpan.FromMilliseconds(i * 200)
+            };
+            anim.KeyFrames.Add(new LinearDoubleKeyFrame { KeyTime = System.TimeSpan.Zero, Value = 0.25 });
+            anim.KeyFrames.Add(new EasingDoubleKeyFrame { KeyTime = System.TimeSpan.FromMilliseconds(300), Value = 1 });
+            anim.KeyFrames.Add(new EasingDoubleKeyFrame { KeyTime = System.TimeSpan.FromMilliseconds(700), Value = 0.25 });
+            anim.KeyFrames.Add(new DiscreteDoubleKeyFrame { KeyTime = System.TimeSpan.FromMilliseconds(1400), Value = 0.25 });
+            Storyboard.SetTarget(anim, dots[i]);
+            Storyboard.SetTargetProperty(anim, "Opacity");
+            sb.Children.Add(anim);
+        }
+
+        _radar = sb;
+        sb.Begin();
+    }
+
+    private void StopRadar()
+    {
+        _radar?.Stop();
+        _radar = null;
+    }
+
+    private static void AddLoop(Storyboard sb, DependencyObject target, string property,
+        double from, double to, int beginMs, int durationMs)
+    {
+        var anim = new DoubleAnimation
+        {
+            From = from,
+            To = to,
+            Duration = new Duration(System.TimeSpan.FromMilliseconds(durationMs)),
+            BeginTime = System.TimeSpan.FromMilliseconds(beginMs),
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(anim, target);
+        Storyboard.SetTargetProperty(anim, property);
+        sb.Children.Add(anim);
+    }
+
+    private static void AddPingPong(Storyboard sb, DependencyObject target, string property,
+        double from, double to, int halfMs)
+    {
+        var anim = new DoubleAnimation
+        {
+            From = from,
+            To = to,
+            Duration = new Duration(System.TimeSpan.FromMilliseconds(halfMs)),
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+        };
+        Storyboard.SetTarget(anim, target);
+        Storyboard.SetTargetProperty(anim, property);
+        sb.Children.Add(anim);
+    }
 
     private void OnRefreshClicked(object sender, RoutedEventArgs e) =>
         InteractionSounds.Current.Play(InteractionCue.Loading, 0.72);

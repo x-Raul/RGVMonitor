@@ -77,6 +77,6 @@ public static class SessionBootstrapper
         var recent = new RecentPlayersStore();
 
         return new RGVMonitorServices(auth, orchestrator, presence, skins, valApi, gameState, party, recent, rank,
-                               new MatchNamesService(api), names, seasonId);
+                               new MatchNamesService(api), names, seasonId, pregame);
     }
 }

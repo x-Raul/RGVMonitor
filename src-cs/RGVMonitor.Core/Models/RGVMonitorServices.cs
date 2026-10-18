@@ -18,4 +18,5 @@ public record RGVMonitorServices(
     RankService Rank,
     MatchNamesService MatchNames,
     NamesService Names,
-    string SeasonId);
+    string SeasonId,
+    PregameService Pregame);

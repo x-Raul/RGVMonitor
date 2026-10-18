@@ -42,6 +42,51 @@ public static class MatchPlayersParser
         return false;
     }
 
+    /// Mapa de la selección y lo que tienes elegido. Null si no apareces en tu equipo.
+    public static PregamePick? ParsePregamePick(string json, string selfPuuid)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var map = root.TryGetProperty("MapID", out var m) && m.ValueKind == JsonValueKind.String
+                ? m.GetString() ?? "" : "";
+            if (!root.TryGetProperty("AllyTeam", out var team) ||
+                !team.TryGetProperty("Players", out var players) ||
+                players.ValueKind != JsonValueKind.Array)
+                return null;
+
+            foreach (var p in players.EnumerateArray())
+            {
+                if (!p.TryGetProperty("Subject", out var subject) || subject.GetString() != selfPuuid) continue;
+                var agent = p.TryGetProperty("CharacterID", out var c) ? c.GetString() ?? "" : "";
+                var state = p.TryGetProperty("CharacterSelectionState", out var st) ? st.GetString() ?? "" : "";
+                return new PregamePick(map, agent, state == "locked");
+            }
+            return null;
+        }
+        catch (JsonException) { return null; }
+    }
+
+    /// puuid → agente que tiene elegido cada aliado en la selección ("" si ninguno).
+    public static Dictionary<string, string> ParsePregameAgents(string json)
+    {
+        var result = new Dictionary<string, string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("AllyTeam", out var team) ||
+                !team.TryGetProperty("Players", out var players) ||
+                players.ValueKind != JsonValueKind.Array)
+                return result;
+            foreach (var p in players.EnumerateArray())
+                if (p.TryGetProperty("Subject", out var subject) && subject.GetString() is { } puuid)
+                    result[puuid] = p.TryGetProperty("CharacterID", out var c) ? c.GetString() ?? "" : "";
+        }
+        catch (JsonException) { }
+        return result;
+    }
+
     public static List<MatchPlayer> ParsePregame(string json)
     {
         using var doc = JsonDocument.Parse(json);

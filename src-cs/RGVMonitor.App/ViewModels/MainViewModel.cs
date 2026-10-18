@@ -11,6 +11,9 @@ using Microsoft.UI.Xaml;
 using RGVMonitor.Core;
 using RGVMonitor.Core.Content;
 using RGVMonitor.Core.Models;
+using RGVMonitor.Core.Overlay;
+using RGVMonitor.Core.Realtime;
+using RGVMonitor.Core.Services;
 
 namespace RGVMonitor.App.ViewModels;
 
@@ -31,6 +34,14 @@ public partial class MainViewModel : ObservableObject
     private bool _contentLoaded;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private readonly PlayerNotesStore _notes = new();
+    private Dictionary<string, MapInfo> _maps = new();
+    private string _overlayMapUrl = "";
+    private (string State, List<PlayerData> List, HashSet<string> Party)? _lastLoad;
+    private readonly PlayedMatchStore _playedStore = new();
+    private Task? _historySync;
+    private CancellationTokenSource? _pregameCts;
+    private QueueStatus? _lastQueue;
+    private readonly QueueClock _queueClock = new();
 
     /// ViewModel compartido de la pestaña Skins (persistente: se carga una vez por
     /// partida y se conserva, así al volver a la pestaña no recarga).
@@ -39,6 +50,10 @@ public partial class MainViewModel : ObservableObject
     /// ViewModel de "Partida anterior". Comparte el mismo almacén de notas para que
     /// una etiqueta puesta ahí se vea al instante en la tabla de Partida.
     public LastMatchViewModel LastMatchVm { get; }
+
+    /// Estado de los overlays de OBS. Solo se alimenta con los overlays encendidos;
+    /// apagados, la app no hace ninguna llamada extra por ellos.
+    public OverlayHub Overlay { get; } = new();
 
     /// Firma de la partida actual (puuids ordenados) para cachear las skins.
     public string CurrentMatchSig { get; private set; } = "";
@@ -147,6 +162,9 @@ public partial class MainViewModel : ObservableObject
                 _loadedState = "";
                 SkinsVm.UpdateServices(services);
                 services.Presence.GameStateChanged += OnGameStateChanged;
+                services.Presence.MatchScoreChanged += OnMatchScoreChanged;
+                services.Presence.QueueChanged += OnQueueChanged;
+                if (Overlay.IsEnabled) EnsureHistorySynced();
 
                 var state = await services.GameState.GetCurrentStateAsync();
                 await RefreshAsync(state);
@@ -172,7 +190,13 @@ public partial class MainViewModel : ObservableObject
             finally
             {
                 if (services is not null)
+                {
                     services.Presence.GameStateChanged -= OnGameStateChanged;
+                    services.Presence.MatchScoreChanged -= OnMatchScoreChanged;
+                    services.Presence.QueueChanged -= OnQueueChanged;
+                }
+                StopPregameOverlay();
+                _historySync = null;
                 _services = null;
                 _loadedState = "";
                 SkinsVm.UpdateServices(null);
@@ -208,6 +232,22 @@ public partial class MainViewModel : ObservableObject
                 // no debe hacer que esta tarea rellene el encuentro equivocado.
                 var completedMatchId = _pendingBackfillMatchId;
                 _ = BackfillNamesAsync(completedMatchId);
+                if (Overlay.IsEnabled)
+                    _ = PushMatchResultAsync(completedMatchId);
+            }
+
+            if (Overlay.IsEnabled)
+            {
+                // La selección empieza partida nueva: el hub borra el mapa, y hay que
+                // volver a mandarlo aunque se repita el de la anterior.
+                if (state == "PREGAME") _overlayMapUrl = "";
+                Overlay.SetGameState(state);
+                if (state == "PREGAME")
+                {
+                    EnsureHistorySynced();
+                    StartPregameOverlay();
+                }
+                else StopPregameOverlay();
             }
 
             if (state != _loadedState)
@@ -356,6 +396,10 @@ public partial class MainViewModel : ObservableObject
             UpdateWinProbability(state, list);
             UpdateSelfRank(list, selfPuuid);
             RecordEncounters(state, list, selfTeam, isRanked, matchId);
+
+            _lastLoad = (state, list, partyPuuids);
+            if (Overlay.IsEnabled)
+                UpdateOverlay(state, list, partyPuuids);
 
             // Precarga de skins para esta partida (en segundo plano), así la pestaña
             // Skins ya las tiene listas y no recarga al abrirla.
@@ -557,6 +601,221 @@ public partial class MainViewModel : ObservableObject
         WinProbEnemy = $"{wp.Value.Enemy:0}%";
         WinProbLow = wp.Value.Ally < 25;
         WinProbVisibility = Visibility.Visible;
+    }
+
+    // ───────────── Overlays de OBS ─────────────
+
+    /// Enciende/apaga el envío de datos a los overlays. Al encender se vuelca lo que
+    /// ya está cargado, sin recargar la partida.
+    public void SetOverlayEnabled(bool enabled)
+    {
+        Overlay.IsEnabled = enabled;
+        if (!enabled)
+        {
+            StopPregameOverlay();
+            return;
+        }
+
+        if (_lastLoad is { } last)
+            UpdateOverlay(last.State, last.List, last.Party);
+        if (_lastQueue is { } queue)
+            Overlay.SetQueue(queue.Since, queue.QueueId);
+        if (_services is not null)
+        {
+            EnsureHistorySynced();
+            if (_loadedState == "PREGAME") StartPregameOverlay();
+        }
+    }
+
+    /// Trae a la caché las competitivas recientes que falten. Se lanza al conectar y en
+    /// cada selección de agente; como solo pide las que faltan, también reintenta las
+    /// que fallaran antes. Solo con overlays encendidos.
+    private void EnsureHistorySynced()
+    {
+        if (_services is not { } services || _historySync is { IsCompleted: false }) return;
+        var sync = new PlayedMatchSync(services.MatchNames, _playedStore);
+        _historySync = Task.Run(() => sync.SyncAsync(services.Auth.Puuid));
+    }
+
+    private void OnQueueChanged(QueueStatus queue)
+        => _dispatcher.TryEnqueue(() =>
+        {
+            // Se guarda ya en el reloj de este PC (ver QueueClock).
+            _lastQueue = queue with { Since = _queueClock.Resolve(queue.Since, DateTimeOffset.UtcNow) };
+            if (Overlay.IsEnabled) Overlay.SetQueue(_lastQueue.Since, _lastQueue.QueueId);
+        });
+
+    private void StartPregameOverlay()
+    {
+        StopPregameOverlay();
+        _pregameCts = new CancellationTokenSource();
+        _ = PregameOverlayLoopAsync(_pregameCts.Token);
+    }
+
+    private void StopPregameOverlay()
+    {
+        _pregameCts?.Cancel();
+        _pregameCts = null;
+    }
+
+    /// La selección solo se carga al entrar en ella; para reaccionar a los picks se
+    /// sondea cada pocos segundos mientras dure (tu pick y el de tus compañeros, que
+    /// sale en los avisos de reencuentro).
+    private async Task PregameOverlayLoopAsync(CancellationToken ct)
+    {
+        try
+        {
+            try { if (_historySync is { } sync) await sync; }
+            catch { /* sin historial nuevo: se usa lo que haya en caché */ }
+
+            string? matchId = null;
+            List<PlayedMatch>? history = null;
+            while (!ct.IsCancellationRequested)
+            {
+                var services = _services;
+                if (services is null || !Overlay.IsEnabled) return;
+                try
+                {
+                    history ??= _playedStore.Load(services.Auth.Puuid);
+                    var (id, pick, agents) = await services.Pregame.GetPickAsync(services.Auth.Puuid, matchId);
+                    matchId = id;
+                    if (pick is not null && !ct.IsCancellationRequested)
+                    {
+                        await PublishPregameAsync(services, pick, history);
+                        PublishNemesis(agents);
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch { matchId = null; }
+                await Task.Delay(TimeSpan.FromSeconds(2.5), ct);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task PublishPregameAsync(RGVMonitorServices services, PregamePick pick, List<PlayedMatch> history)
+    {
+        if (_maps.Count == 0)
+            try { _maps = await services.ValApi.GetMapsAsync(); } catch { }
+        var map = _maps.GetValueOrDefault(pick.MapUrl.ToLowerInvariant());
+        var mapStats = string.IsNullOrEmpty(pick.MapUrl) ? null : PregameInsights.ForMap(history, pick.MapUrl);
+        var best = mapStats?.BestAgentId is { } bestId ? _agents.GetValueOrDefault(bestId) : null;
+        var agent = string.IsNullOrEmpty(pick.AgentId) ? null : _agents.GetValueOrDefault(pick.AgentId.ToLowerInvariant());
+        var agentStats = string.IsNullOrEmpty(pick.AgentId) ? null : PregameInsights.ForAgent(history, pick.AgentId);
+
+        Overlay.SetPregame(new PregameCard(
+            map?.Name ?? "", map?.Splash ?? "", mapStats, best?.Name ?? "", best?.Icon ?? "",
+            agent?.Name ?? "", agent?.Icon ?? "", pick.Locked, agentStats));
+    }
+
+    /// Reencuentros de la partida actual, con el agente que tenían al cargarla.
+    private List<NemesisEntry> _nemesisEntries = new();
+
+    /// Vuelve a mandar los reencuentros con los agentes elegidos ahora (puuid → agente).
+    private void PublishNemesis(IReadOnlyDictionary<string, string>? currentAgents = null)
+    {
+        Overlay.SetNemesis(_nemesisEntries.Select(e =>
+        {
+            if (currentAgents?.GetValueOrDefault(e.Puuid) is not { Length: > 0 } agentId) return e;
+            var agent = _agents.GetValueOrDefault(agentId.ToLowerInvariant());
+            return agent is null ? e : e with { Agent = agent.Name, AgentIcon = agent.Icon };
+        }));
+    }
+
+    private void UpdateOverlay(string state, List<PlayerData> list, HashSet<string> partyPuuids)
+    {
+        if (_services is null) return;
+        var selfPuuid = _services.Auth.Puuid;
+
+        Overlay.SetGameState(state);
+        Overlay.SetWinProbability(WinProbVisibility == Visibility.Visible ? AllyPct : null);
+
+        var self = list.FirstOrDefault(p => p.Puuid == selfPuuid);
+        if (self is not null && self.Rank.Tier > 0)
+            Overlay.SetRank(self.Rank.Tier, self.Rank.Rr, _rankIcons.GetValueOrDefault(self.Rank.Tier));
+
+        // Reencuentros: gente de esta partida que ya está en tu historial (sin tu party).
+        // A quien va en incógnito no se le pone nombre: el stream no debe desvelarlo.
+        if (state is "PREGAME" or "INGAME")
+        {
+            var selfTeam = self?.TeamId;
+            var entries = new List<NemesisEntry>();
+            foreach (var p in list)
+            {
+                if (p.Puuid == selfPuuid || partyPuuids.Contains(p.Puuid)) continue;
+                if (_recentIndex.GetValueOrDefault(p.Puuid) is not { } seen) continue;
+
+                var agent = !string.IsNullOrEmpty(p.AgentId)
+                    ? _agents.GetValueOrDefault(p.AgentId.ToLowerInvariant())
+                    : null;
+                var name = p.Incognito || PlayerName.IsPending(p.Name) ? null : p.Name;
+                entries.Add(new NemesisEntry(p.Puuid, name, agent?.Name ?? "", agent?.Icon ?? "", seen.LastAgent,
+                    seen.TimesSeen, seen.LastSeen, seen.LastAlly,
+                    selfTeam is not null && p.TeamId == selfTeam));
+            }
+            _nemesisEntries = entries;
+            PublishNemesis();
+        }
+    }
+
+    // Llega desde el hilo del socket: se pasa al de UI para no pisar el estado.
+    private void OnMatchScoreChanged(MatchScore score)
+        => _dispatcher.TryEnqueue(async () =>
+        {
+            if (!Overlay.IsEnabled) return;
+            Overlay.SetScore(score.Ally, score.Enemy);
+            if (score.MapUrl == _overlayMapUrl || _services is null) return;
+
+            _overlayMapUrl = score.MapUrl;
+            if (_maps.Count == 0)
+                try { _maps = await _services.ValApi.GetMapsAsync(); } catch { }
+            var map = _maps.GetValueOrDefault(score.MapUrl.ToLowerInvariant());
+            Overlay.SetMap(map?.Name ?? "", map?.Splash ?? "");
+        });
+
+    /// Tarjeta de fin de partida: espera a que Riot publique match-details y la manda
+    /// una vez. Solo hay datos de competitivas (de ahí sale el RR).
+    private async Task PushMatchResultAsync(string? completedMatchId)
+    {
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(attempt == 0 ? 8 : 15));
+                var services = _services;
+                if (services is null || !Overlay.IsEnabled) return;
+
+                var result = await services.MatchNames.GetLastMatchResultAsync(services.Auth.Puuid);
+                if (result is null) continue;
+                // Con id conocido debe ser esa partida; sin él, solo si es reciente
+                // (si no, al arrancar se mostraría una partida de ayer).
+                if (completedMatchId is not null && result.MatchId != completedMatchId) continue;
+                if (completedMatchId is null &&
+                    (result.Info.Start is not { } start || DateTimeOffset.UtcNow - start > TimeSpan.FromHours(2)))
+                    return;
+                if (Overlay.HasMatch(result.MatchId)) return;
+
+                var self = result.Players.FirstOrDefault(p => p.Puuid == services.Auth.Puuid);
+                if (self is null) continue;
+
+                if (_maps.Count == 0)
+                    try { _maps = await services.ValApi.GetMapsAsync(); } catch { }
+                var map = _maps.GetValueOrDefault(result.Info.MapId.ToLowerInvariant());
+                var agent = _agents.GetValueOrDefault(self.AgentId.ToLowerInvariant());
+                var titles = MatchTitles.For(self, result.Players, result.Info.Won);
+
+                Overlay.AddMatchResult(new OverlayMatchCard(
+                    result.MatchId, result.Info.Won, result.Info.AllyRounds, result.Info.EnemyRounds,
+                    map?.Name ?? "", map?.Splash ?? "", agent?.Name ?? "", agent?.Icon ?? "",
+                    self.Kills, self.Deaths, self.Assists, titles.Acs, titles.HsPercent, self.FirstKills,
+                    result.RrEarned, result.RrAfter, result.TierAfter,
+                    result.TierAfter is int tier ? _rankIcons.GetValueOrDefault(tier) : null,
+                    titles.Title, titles.Subtitle, titles.IsMatchMvp));
+                _playedStore.Add(new[] { PlayedMatch.From(result.MatchId, services.Auth.Puuid, result.Info, self) });
+                return;
+            }
+            catch { /* reintento; sin tarjeta si no sale */ }
+        }
     }
 
     private static string Label(string state) => state switch

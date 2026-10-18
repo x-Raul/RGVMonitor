@@ -76,6 +76,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <ListView x:Name="NavRail" Grid.Row="0"
@@ -208,7 +209,41 @@
                 </Rectangle.RenderTransform>
             </Rectangle>
 
-            <Button x:Name="SoundButton" Grid.Row="1"
+            <!-- Overlays para OBS: desactivados por defecto, no tocan la app base. -->
+            <Button x:Name="StreamButton" Grid.Row="1"
+                    Style="{StaticResource RailButtonStyle}"
+                    AutomationProperties.Name="Overlays para stream">
+                <StackPanel Spacing="3" RenderTransformOrigin="0.5,0.5">
+                    <FontIcon x:Name="StreamIcon" Glyph="&#xE714;" FontSize="16"
+                              Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Text="Stream" Style="{StaticResource RailLabelStyle}" />
+                </StackPanel>
+                <Button.Flyout>
+                    <Flyout Placement="RightEdgeAlignedBottom">
+                        <StackPanel Width="380" Spacing="12">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Overlays para OBS" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="Marcador en vivo con momentum, rango y sesión, tarjeta de fin de partida y reencuentros. Se sirven desde tu PC (localhost) para añadirlos en OBS como Fuente de navegador." />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="OverlayToggle" Header="Servidor de overlays"
+                                          OffContent="Desactivado" OnContent="Activo"
+                                          Toggled="OverlayToggle_Toggled" />
+                            <TextBlock x:Name="OverlayStatus" TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBox x:Name="TwitchChannelBox" Header="Canal de Twitch (para el chat)"
+                                     PlaceholderText="tu_canal" TextChanged="TwitchChannelBox_TextChanged" />
+                            <StackPanel x:Name="OverlayLinks" Spacing="6" Visibility="Collapsed" />
+                            <Button x:Name="OverlayHelpButton" Content="Ver widgets y demo en el navegador"
+                                    Click="OverlayHelpButton_Click" IsEnabled="False"
+                                    HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+
+            <Button x:Name="SoundButton" Grid.Row="2"
                     Style="{StaticResource RailButtonStyle}"
                     Click="SoundButton_Click">
                 <StackPanel Spacing="3" RenderTransformOrigin="0.5,0.5">

@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Windows.Foundation;
 using RGVMonitor.App.ViewModels;
 using RGVMonitor.Core;
+using RGVMonitor.Core.Overlay;
 
 namespace RGVMonitor.App;
 
@@ -40,8 +41,119 @@ public sealed partial class MainWindow : Window
         foreach (var item in NavRail.Items.OfType<ListViewItem>())
             if (item.Content is UIElement content) AttachPressAnimation(item, content);
         if (SoundButton.Content is UIElement soundContent) AttachPressAnimation(SoundButton, soundContent);
+        if (StreamButton.Content is UIElement streamContent) AttachPressAnimation(StreamButton, streamContent);
 
         NavRail.SelectedIndex = 0;
+
+        // Overlays: apagados salvo que el usuario los encendiera antes. Fijar IsOn
+        // dispara Toggled, que es quien arranca el servidor.
+        Closed += (_, _) => _overlayServer?.Dispose();
+        TwitchChannelBox.Text = _overlaySettings.LoadTwitchChannel();
+        OverlayToggle.IsOn = _overlaySettings.LoadEnabled();
+        UpdateOverlayUi();
+    }
+
+    // ───────────── Overlays de OBS ─────────────
+
+    private readonly OverlaySettings _overlaySettings = new();
+    private OverlayServer? _overlayServer;
+
+    private static readonly (string Label, string Query)[] OverlayWidgets =
+    {
+        ("Contador de cola", "queue"),
+        ("Selección de agente", "pregame"),
+        ("Marcador + momentum", "score"),
+        ("Rango y sesión", "session"),
+        ("Fin de partida", "mvp"),
+        ("Reencuentros", "nemesis"),
+        ("Chat de Twitch", "chat"),
+        ("Todo (1920×1080)", "all")
+    };
+
+    private void TwitchChannelBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        _overlaySettings.SaveTwitchChannel(TwitchChannelBox.Text);
+        UpdateOverlayUi();
+    }
+
+    private void OverlayToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        var on = OverlayToggle.IsOn;
+        _overlaySettings.SaveEnabled(on);
+        string? error = null;
+
+        if (on)
+        {
+            _overlayServer ??= new OverlayServer(ViewModel.Overlay);
+            try { _overlayServer.Start(); }
+            catch (Exception ex) { error = ex.Message; }
+        }
+        else
+        {
+            _overlayServer?.Stop();
+        }
+
+        var running = _overlayServer?.IsRunning == true;
+        ViewModel.SetOverlayEnabled(running);
+        if (on && !running)
+        {
+            // Sin servidor no tiene sentido alimentar el hub: se vuelve a apagar.
+            OverlayToggle.IsOn = false;
+            OverlayStatus.Text = $"No se pudo abrir el puerto {OverlayServer.DefaultPort}: {error}";
+            return;
+        }
+        UpdateOverlayUi();
+    }
+
+    private void UpdateOverlayUi()
+    {
+        var running = _overlayServer?.IsRunning == true;
+        OverlayHelpButton.IsEnabled = running;
+        OverlayLinks.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+        StreamIcon.Foreground = running
+            ? (Brush)Application.Current.Resources["SystemControlForegroundAccentBrush"]
+            : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+        OverlayStatus.Text = running
+            ? "Copia una URL y pégala en OBS → Fuente de navegador."
+            : "Desactivado: la app no abre ningún puerto ni hace llamadas extra.";
+
+        OverlayLinks.Children.Clear();
+        if (!running) return;
+        foreach (var (label, query) in OverlayWidgets)
+        {
+            // El chat (y "todo", que lo incluye) necesitan saber de qué canal leer.
+            var channel = OverlaySettings.CleanChannel(TwitchChannelBox.Text);
+            var url = $"{_overlayServer!.BaseUrl}overlay?w={query}"
+                      + (channel.Length > 0 && query is "chat" or "all" ? $"&twitch={channel}" : "");
+            var copy = new Button { Content = new FontIcon { Glyph = "", FontSize = 13 }, Padding = new Thickness(8, 5, 8, 5) };
+            AutomationProperties.SetName(copy, $"Copiar URL de {label}");
+            copy.Click += (_, _) =>
+            {
+                var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                package.SetText(url);
+                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+                OverlayStatus.Text = $"Copiada: {url}";
+            };
+
+            var row = new Grid { ColumnSpacing = 8 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var name = new TextBlock { Text = label, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+            var box = new TextBox { Text = url, IsReadOnly = true, FontSize = 11 };
+            Grid.SetColumn(box, 1);
+            Grid.SetColumn(copy, 2);
+            row.Children.Add(name);
+            row.Children.Add(box);
+            row.Children.Add(copy);
+            OverlayLinks.Children.Add(row);
+        }
+    }
+
+    private async void OverlayHelpButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_overlayServer?.IsRunning == true)
+            await Windows.System.Launcher.LaunchUriAsync(new Uri(_overlayServer.BaseUrl));
     }
 
     // Tamaño inicial pensado para ver las 10 filas de una partida sin hacer scroll,
