@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="RGVMonitor.App.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:RGVMonitor.App">
+
+    <Page.Resources>
+        <Style x:Key="SettingRowStyle" TargetType="Grid">
+            <Setter Property="Padding" Value="20,16" />
+            <Setter Property="ColumnSpacing" Value="16" />
+        </Style>
+        <Style x:Key="SettingTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="SettingDescriptionStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="2,8,0,0" />
+        </Style>
+    </Page.Resources>
+
+    <ScrollViewer>
+        <StackPanel Padding="28,20,28,24" Spacing="10" MaxWidth="820" HorizontalAlignment="Left">
+            <StackPanel.ChildrenTransitions>
+                <TransitionCollection>
+                    <EntranceThemeTransition FromVerticalOffset="16" IsStaggeringEnabled="True" />
+                </TransitionCollection>
+            </StackPanel.ChildrenTransitions>
+
+            <TextBlock Text="Configuración" Style="{StaticResource PageTitleStyle}" Margin="0,0,0,6" />
+
+            <!-- Acerca de -->
+            <TextBlock Text="Acerca de" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource SurfaceCardStyle}">
+                <Grid Style="{StaticResource SettingRowStyle}" Padding="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <local:AppLogo Width="56" Height="56" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="RG Valorant Monitor" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock x:Name="VersionLine" FontSize="13" />
+                        <TextBlock x:Name="BuildLine" Style="{StaticResource SettingDescriptionStyle}"
+                                   IsTextSelectionEnabled="True" FontFamily="Consolas" />
+                    </StackPanel>
+                    <Button Grid.Column="2" VerticalAlignment="Center" Click="CopyVersion_Click"
+                            ToolTipService.ToolTip="Copia la versión completa, para reportar un fallo">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8C8;" FontSize="14" />
+                            <TextBlock x:Name="CopyVersionLabel" Text="Copiar versión" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Historial -->
+            <TextBlock Text="Historial de jugadores" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource SurfaceCardStyle}">
+                <StackPanel>
+                    <Grid Style="{StaticResource SettingRowStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE716;" FontSize="20" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Lo que hay guardado" Style="{StaticResource SettingTitleStyle}" />
+                            <TextBlock x:Name="CountsText" Style="{StaticResource SettingDescriptionStyle}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                    <Grid Style="{StaticResource SettingRowStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xEDE1;" FontSize="20" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Exportar historial" Style="{StaticResource SettingTitleStyle}" />
+                            <TextBlock Style="{StaticResource SettingDescriptionStyle}"
+                                       Text="Guarda en un .zip los jugadores con los que has jugado, sus encuentros y tus notas. Sirve de copia de seguridad o para llevarlo a otro PC." />
+                        </StackPanel>
+                        <Button x:Name="ExportButton" Grid.Column="2" VerticalAlignment="Center"
+                                Content="Exportar…" Click="Export_Click" MinWidth="110" />
+                    </Grid>
+
+                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                    <Grid Style="{StaticResource SettingRowStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE8B5;" FontSize="20" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Importar historial" Style="{StaticResource SettingTitleStyle}" />
+                            <TextBlock Style="{StaticResource SettingDescriptionStyle}"
+                                       Text="Añade a tu historial lo que traiga una copia exportada. No borra ni reemplaza nada: los encuentros repetidos se ignoran y, de cada nota, se queda la más reciente. Antes de importar se guarda una copia automática de lo que tienes ahora." />
+                        </StackPanel>
+                        <Button x:Name="ImportButton" Grid.Column="2" VerticalAlignment="Center"
+                                Content="Importar…" Click="Import_Click" MinWidth="110" />
+                    </Grid>
+
+                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                    <Grid Style="{StaticResource SettingRowStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE838;" FontSize="20" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Carpeta de datos" Style="{StaticResource SettingTitleStyle}" />
+                            <TextBlock x:Name="DataFolderText" Style="{StaticResource SettingDescriptionStyle}"
+                                       IsTextSelectionEnabled="True" />
+                        </StackPanel>
+                        <Button Grid.Column="2" VerticalAlignment="Center"
+                                Content="Abrir carpeta" Click="OpenFolder_Click" MinWidth="110" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <InfoBar x:Name="ResultBar" IsClosable="True" IsOpen="False" Margin="0,4,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

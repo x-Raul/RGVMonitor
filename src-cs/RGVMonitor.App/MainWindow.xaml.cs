@@ -24,19 +24,22 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon(ExtractWindowIcon());
-        VersionText.Text = $"v{AppVersion.Display}";
-        AutomationProperties.SetName(VersionBadge, $"Versión {AppVersion.Display}");
-        Title = $"RG Valorant Monitor v{AppVersion.Display}";
+        VersionText.Text = $"v{AppVersion.Number}";
+        AutomationProperties.SetName(VersionBadge, $"Versión {AppVersion.Number}");
+        Title = $"RG Valorant Monitor v{AppVersion.Number}";
         SizeToFitFullMatch();
 
         ViewModel = new MainViewModel(DispatcherQueue);
+        Bindings.Update();
         ViewModel.TaggedAlliesDetected += OnTaggedAlliesDetected;
+        ViewModel.MatchFound += OnMatchFound;
         _ = ViewModel.InitializeAsync();
         _ = _sounds.PrimeAsync();
         UpdateSoundItem(animate: false);
         Closed += (_, _) =>
         {
             ViewModel.TaggedAlliesDetected -= OnTaggedAlliesDetected;
+            ViewModel.MatchFound -= OnMatchFound;
             _sounds.Dispose();
         };
 
@@ -45,6 +48,7 @@ public sealed partial class MainWindow : Window
             if (item.Content is UIElement content) AttachPressAnimation(item, content);
         if (SoundButton.Content is UIElement soundContent) AttachPressAnimation(SoundButton, soundContent);
         if (StreamButton.Content is UIElement streamContent) AttachPressAnimation(StreamButton, streamContent);
+        if (SettingsButton.Content is UIElement settingsContent) AttachPressAnimation(SettingsButton, settingsContent);
 
         NavRail.SelectedIndex = 0;
 
@@ -212,7 +216,38 @@ public sealed partial class MainWindow : Window
 
         if (page is null || ContentFrame.CurrentSourcePageType == page) return;
         ContentFrame.Navigate(page, ViewModel);
+        SetSettingsActive(false);
         _sounds.Play(InteractionCue.Page, 0.72);
+    }
+
+    // Al encontrar partida (selección de agente o inicio) se vuelve a la pestaña
+    // Partida desde cualquier otra, Ajustes incluido.
+    private void OnMatchFound()
+    {
+        if (NavRail.SelectedIndex != 0) NavRail.SelectedIndex = 0;
+    }
+
+    // Ajustes no es una pestaña del riel: al abrirlo se deselecciona el riel, se oculta
+    // el indicador y el engranaje se pinta con el acento y da media vuelta.
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ContentFrame.CurrentSourcePageType == typeof(SettingsPage)) return;
+        NavRail.SelectedIndex = -1;
+        RailIndicator.Opacity = 0;
+        ContentFrame.Navigate(typeof(SettingsPage), this);
+        SetSettingsActive(true);
+        _sounds.Play(InteractionCue.Page, 0.72);
+    }
+
+    private void SetSettingsActive(bool active)
+    {
+        SettingsIcon.Foreground = (Brush)Application.Current.Resources[
+            active ? "AccentTextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"];
+        if (!active || SettingsIcon.RenderTransform is not RotateTransform rotate) return;
+        var storyboard = new Storyboard();
+        AddAnimation(storyboard, rotate, "Angle", rotate.Angle + 180, TimeSpan.FromMilliseconds(500),
+            new CubicEase { EasingMode = EasingMode.EaseOut });
+        storyboard.Begin();
     }
 
     // Como en la Microsoft Store: el elemento activo desvanece su etiqueta y su icono

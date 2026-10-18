@@ -11,6 +11,7 @@ RG Valorant Monitor es una aplicación de escritorio para Windows que muestra in
 - Historial de encuentros con la fecha y el agente usado.
 - Resolución de nombres después de la partida cuando estuvieron ocultos durante el encuentro.
 - Notas y etiquetas locales para jugadores.
+- Exportar e importar el historial de jugadores y las notas desde Ajustes, como copia de seguridad o para pasarlo a otro PC.
 - Información de skins.
 - Overlays opcionales para OBS: marcador en vivo, tarjeta de fin de partida y reencuentros. Se sirven desde `localhost` y vienen desactivados.
 
@@ -64,7 +65,8 @@ de iconos de Windows, que lo guarda por ruta. El ejecutable ya lleva el nuevo.
 
 La barra de título muestra la versión junto al nombre, con el commit desde el que se
 compiló (por ejemplo `v1.0.0 · b722af2`). El ejecutable la incluye también en
-Propiedades > Detalles.
+Propiedades > Detalles. En Ajustes aparece la versión completa, con el commit entero
+y la fecha de compilación, y un botón para copiarla.
 
 La versión se define en `<Version>` dentro de `src-cs\RGVMonitor.App\RGVMonitor.App.csproj`.
 Súbela antes de cada publicación.
@@ -82,6 +84,10 @@ Súbela antes de cada publicación.
 ## Datos y privacidad
 
 RGVMonitor funciona de forma local y obtiene la información desde la sesión de VALORANT abierta en el equipo. Las notas, etiquetas y el historial se guardan en `%APPDATA%\RGVMonitor`.
+
+Desde Ajustes puedes exportar el historial y las notas a un `.zip` e importarlo después. Importar
+fusiona la copia con lo que ya tienes y no borra nada. Antes de importar, la app guarda una copia
+de los datos actuales en `%APPDATA%\RGVMonitor\backups`.
 
 No compartas archivos de sesión, credenciales ni tokens generados por el cliente de Riot.
 

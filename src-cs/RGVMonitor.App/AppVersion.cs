@@ -11,14 +11,20 @@ internal static class AppVersion
         ?? typeof(AppVersion).Assembly.GetName().Version?.ToString(3)
         ?? "0.0.0";
 
-    /// <summary>Versión visible: "1.0.0", o "1.0.0 · b722af2" si el build incluye el commit.</summary>
-    public static string Display { get; } = BuildDisplay(Informational);
+    /// <summary>Solo el número, p. ej. "1.0.0".</summary>
+    public static string Number { get; } = Informational.Split('+')[0];
 
-    private static string BuildDisplay(string informational)
+    /// <summary>Commit completo del build, o "" si el SDK no lo incluyó.</summary>
+    public static string Commit { get; } =
+        Informational.Contains('+') ? Informational[(Informational.IndexOf('+') + 1)..] : "";
+
+    /// <summary>Fecha de compilación (la del ejecutable).</summary>
+    public static DateTime? BuiltAt
     {
-        var plus = informational.IndexOf('+');
-        if (plus < 0) return informational;
-        var commit = informational[(plus + 1)..];
-        return $"{informational[..plus]} · {commit[..Math.Min(7, commit.Length)]}";
+        get
+        {
+            try { return File.GetLastWriteTime(Environment.ProcessPath ?? typeof(AppVersion).Assembly.Location); }
+            catch { return null; }
+        }
     }
 }

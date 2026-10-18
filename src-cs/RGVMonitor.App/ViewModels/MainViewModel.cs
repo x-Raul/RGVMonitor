@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using RGVMonitor.Core;
 using RGVMonitor.Core.Content;
 using RGVMonitor.Core.Models;
@@ -65,8 +66,32 @@ public partial class MainViewModel : ObservableObject
     /// que ya tenía una de las etiquetas de riesgo guardadas.
     public event Action<int>? TaggedAlliesDetected;
 
+    /// Se acaba de entrar en selección de agente o en partida (la ventana salta a Partida).
+    public event Action? MatchFound;
+
     [ObservableProperty]
     private string _status = "Conectando con VALORANT…";
+
+    // ───── Contador de búsqueda de partida ─────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(QueueVisibility), nameof(IdleVisibility))]
+    private bool _isQueueing;
+
+    /// Tiempo buscando, p. ej. "2:34".
+    [ObservableProperty]
+    private string _queueElapsed = "";
+
+    /// "Buscando partida · Competitivo".
+    [ObservableProperty]
+    private string _queueLabel = "";
+
+    /// Color del contador: normal, dorado desde 5 min y rojo desde 10 (como el overlay).
+    [ObservableProperty]
+    private Brush? _queueTimeBrush;
+
+    public Visibility QueueVisibility => IsQueueing ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility IdleVisibility => IsQueueing ? Visibility.Collapsed : Visibility.Visible;
 
     [ObservableProperty]
     private bool _isBusy = true;
@@ -199,6 +224,8 @@ public partial class MainViewModel : ObservableObject
                 _historySync = null;
                 _services = null;
                 _loadedState = "";
+                _lastQueue = null;
+                UpdateQueueUi();
                 SkinsVm.UpdateServices(null);
             }
 
@@ -249,6 +276,9 @@ public partial class MainViewModel : ObservableObject
                 }
                 else StopPregameOverlay();
             }
+
+            if (state != _loadedState && state is ("PREGAME" or "INGAME"))
+                MatchFound?.Invoke();
 
             if (state != _loadedState)
                 await RefreshAsync(state);
@@ -643,7 +673,46 @@ public partial class MainViewModel : ObservableObject
             // Se guarda ya en el reloj de este PC (ver QueueClock).
             _lastQueue = queue with { Since = _queueClock.Resolve(queue.Since, DateTimeOffset.UtcNow) };
             if (Overlay.IsEnabled) Overlay.SetQueue(_lastQueue.Since, _lastQueue.QueueId);
+            UpdateQueueUi();
         });
+
+    private DispatcherQueueTimer? _queueTimer;
+
+    private void UpdateQueueUi()
+    {
+        if (_lastQueue?.Since is null)
+        {
+            _queueTimer?.Stop();
+            IsQueueing = false;
+            QueueElapsed = "";
+            return;
+        }
+
+        var name = QueueDisplay.Name(_lastQueue.QueueId);
+        QueueLabel = name.Length > 0 ? $"Buscando partida · {name}" : "Buscando partida";
+        IsQueueing = true;
+        TickQueue();
+        if (_queueTimer is null)
+        {
+            _queueTimer = _dispatcher.CreateTimer();
+            _queueTimer.Interval = TimeSpan.FromSeconds(1);
+            _queueTimer.Tick += (_, _) => TickQueue();
+        }
+        _queueTimer.Start();
+    }
+
+    private void TickQueue()
+    {
+        if (_lastQueue?.Since is not { } since) return;
+        var elapsed = DateTimeOffset.UtcNow - since;
+        QueueElapsed = QueueDisplay.Elapsed(elapsed);
+        QueueTimeBrush = QueueDisplay.Stage(elapsed) switch
+        {
+            3 => (Brush)Application.Current.Resources["EnemyBrush"],
+            2 => (Brush)Application.Current.Resources["MvpBrush"],
+            _ => (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"],
+        };
+    }
 
     private void StartPregameOverlay()
     {

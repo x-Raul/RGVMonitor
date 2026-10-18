@@ -28,12 +28,27 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="Partida en vivo" FontSize="22" FontWeight="Bold"
                            CharacterSpacing="-10" VerticalAlignment="Center" />
-                <Border Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Center"
-                        Padding="10,3" CornerRadius="10"
-                        Background="{ThemeResource SubtleFillColorSecondaryBrush}">
-                    <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="12"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </Border>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                            HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <Border Padding="10,3" CornerRadius="10" VerticalAlignment="Center"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                        <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Border>
+                    <!-- Buscando partida desde el lobby: tipo de cola y tiempo que llevas. -->
+                    <Border Padding="10,3,11,4" CornerRadius="10" VerticalAlignment="Center"
+                            Background="#264C97ED" BorderBrush="#664C97ED" BorderThickness="1"
+                            Visibility="{x:Bind ViewModel.QueueVisibility, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{x:Bind ViewModel.QueueLabel, Mode=OneWay}" FontSize="12"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind ViewModel.QueueElapsed, Mode=OneWay}" FontSize="13"
+                                       FontWeight="Bold" VerticalAlignment="Center"
+                                       Foreground="{x:Bind ViewModel.QueueTimeBrush, Mode=OneWay}"
+                                       Typography.NumeralAlignment="Tabular" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
                 <!-- Tu rango: pastilla (azul con flecha si estás a una victoria de subir) -->
                 <Grid Grid.Column="2" VerticalAlignment="Center"
@@ -449,11 +464,23 @@
                             <FontIcon.RenderTransform><TranslateTransform /></FontIcon.RenderTransform>
                         </FontIcon>
                     </Grid>
-                    <TextBlock Text="Sin partida activa" Style="{StaticResource EmptyStateTitleStyle}" />
-                    <TextBlock Text="Los jugadores aparecerán aquí en cuanto entres en la selección de agente."
-                               Style="{StaticResource EmptyStateBodyStyle}" />
+                    <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IdleVisibility, Mode=OneWay}">
+                        <TextBlock Text="Sin partida activa" Style="{StaticResource EmptyStateTitleStyle}" />
+                        <TextBlock Text="Los jugadores aparecerán aquí en cuanto entres en la selección de agente."
+                                   Style="{StaticResource EmptyStateBodyStyle}" />
+                    </StackPanel>
+                    <!-- Buscando partida: contador grande que cambia de color si la cola se alarga. -->
+                    <TextBlock Text="{x:Bind ViewModel.QueueElapsed, Mode=OneWay}"
+                               Visibility="{x:Bind ViewModel.QueueVisibility, Mode=OneWay}"
+                               Foreground="{x:Bind ViewModel.QueueTimeBrush, Mode=OneWay}"
+                               FontSize="44" FontWeight="Bold" CharacterSpacing="-20"
+                               Typography.NumeralAlignment="Tabular" HorizontalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" Margin="0,6,0,0">
-                        <TextBlock Text="Buscando partida" Style="{StaticResource CaptionTextStyle}"
+                        <TextBlock Text="Esperando" Style="{StaticResource CaptionTextStyle}"
+                                   Visibility="{x:Bind ViewModel.IdleVisibility, Mode=OneWay}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{x:Bind ViewModel.QueueLabel, Mode=OneWay}" Style="{StaticResource CaptionTextStyle}"
+                                   Visibility="{x:Bind ViewModel.QueueVisibility, Mode=OneWay}"
                                    VerticalAlignment="Center" />
                         <Ellipse x:Name="RadarDot1" Width="4" Height="4" Fill="{StaticResource AllyBrush}"
                                  Opacity="0.25" VerticalAlignment="Center" />
