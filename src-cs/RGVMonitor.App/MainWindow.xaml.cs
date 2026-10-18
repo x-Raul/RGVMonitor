@@ -24,6 +24,9 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon(ExtractWindowIcon());
+        VersionText.Text = $"v{AppVersion.Display}";
+        AutomationProperties.SetName(VersionBadge, $"Versión {AppVersion.Display}");
+        Title = $"RG Valorant Monitor v{AppVersion.Display}";
         SizeToFitFullMatch();
 
         ViewModel = new MainViewModel(DispatcherQueue);

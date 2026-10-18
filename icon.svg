@@ -1,12 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="black" rx="20"/>
-  <text x="50%" y="50%" dy=".35em"
-        fill="white"
-        font-family="Arial, sans-serif"
-        font-weight="900"
-        font-size="40"
-        text-anchor="middle"
-        letter-spacing="-2">
-    RG<tspan fill="#ec135b">.</tspan>
-  </text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Logo de RG Valorant Monitor. Fuente de verdad del diseño: tools/gen_icon.py
+       (genera icon.ico). Mantener ambos sincronizados. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#241A26"/>
+      <stop offset="1" stop-color="#0A090E"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="128" cy="128" r="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E81848" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#E81848" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF5C6E"/>
+      <stop offset="1" stop-color="#E81848"/>
+    </linearGradient>
+    <linearGradient id="sweep" x1="90" y1="74" x2="175" y2="81" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF3D5C" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FF3D5C" stop-opacity="0.8"/>
+    </linearGradient>
+    <clipPath id="shape"><rect width="256" height="256" rx="60"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#shape)">
+    <rect width="256" height="256" fill="url(#bg)"/>
+    <rect width="256" height="256" fill="url(#glow)"/>
+
+    <!-- Barrido de radar -->
+    <path d="M128,128 L90.14,73.94 A66,66 0 0 1 174.67,81.33 Z" fill="url(#sweep)"/>
+    <line x1="149.21" y1="106.79" x2="174.67" y2="81.33" stroke="#FF4F68" stroke-width="5"/>
+
+    <!-- Anillo partido en cruz -->
+    <g fill="none" stroke="#F4F2F7" stroke-width="11">
+      <path d="M201.41,147.67 A76,76 0 0 1 147.67,201.41"/>
+      <path d="M108.33,201.41 A76,76 0 0 1 54.59,147.67"/>
+      <path d="M54.59,108.33 A76,76 0 0 1 108.33,54.59"/>
+      <path d="M147.67,54.59 A76,76 0 0 1 201.41,108.33"/>
+    </g>
+
+    <!-- Marcas de mira -->
+    <g fill="#F4F2F7">
+      <polygon points="119,24 137,24 129.5,80 126.5,80"/>
+      <polygon points="232,119 232,137 176,129.5 176,126.5"/>
+      <polygon points="137,232 119,232 126.5,176 129.5,176"/>
+      <polygon points="24,137 24,119 80,126.5 80,129.5"/>
+    </g>
+
+    <!-- Rombo central y punto detectado -->
+    <polygon points="128,104 152,128 128,152 104,128" fill="url(#accent)"/>
+    <circle cx="166.11" cy="106" r="7.5" fill="url(#accent)"/>
+  </g>
 </svg>

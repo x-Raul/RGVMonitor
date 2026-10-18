@@ -1,66 +1,120 @@
-"""Genera icon.ico (multi-tamaño, bordes suaves) para RG Tracker.
+"""Genera icon.ico (multi-tamaño) y la vista previa del logo de RG Valorant Monitor.
 
-Bordes limpios: se renderiza a 4x y se reduce con Lanczos (antialiasing real),
-porque las formas de Pillow no tienen AA y dejan esquinas dentadas/claras.
+Logo: retícula de "monitor" — anillo partido en cruz, marcas de mira, barrido de
+radar y un rombo central. Todo se define en un lienzo de 256 (igual que icon.svg)
+y se renderiza a 4x con reducción Lanczos para bordes suaves.
+
+Los tamaños pequeños (<= 32 px) usan una versión simplificada: sin barrido ni
+punto de detección y con trazos más gruesos, para que se lea en la barra de tareas.
 """
-import io, struct, os
-from PIL import Image, ImageDraw, ImageFont
+import io, math, os, struct
 
-SS = 4  # supersampling
+import numpy as np
+from PIL import Image, ImageDraw
 
-PINK = (236, 19, 91, 255)
-TOP  = (34, 34, 42)   # degradado de fondo: arriba
-BOT  = (12, 12, 16)   # abajo
+SS = 4          # supersampling
+BASE = 256      # lienzo lógico (coincide con el viewBox de icon.svg)
+
+ACCENT_A = np.array([255, 92, 110])   # coral (arriba-izquierda)
+ACCENT_B = np.array([232, 24, 72])    # carmesí (abajo-derecha)
+BG_TOP = np.array([36, 26, 38])
+BG_BOT = np.array([10, 9, 14])
+WHITE = (244, 242, 247, 255)
 
 
-def load_font(px):
-    for name in ("arialbd.ttf", "segoeuib.ttf", "arial.ttf"):
-        try:
-            return ImageFont.truetype(name, px)
-        except OSError:
-            continue
-    return ImageFont.load_default()
+def squircle_mask(s, radius_frac=0.235):
+    mask = Image.new("L", (s, s), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, s - 1, s - 1], radius=int(s * radius_frac), fill=255)
+    return mask
+
+
+def linear_gradient(s, c0, c1, diagonal=False):
+    y, x = np.mgrid[0:s, 0:s] / (s - 1)
+    t = ((x + y) / 2) if diagonal else y
+    rgb = c0[None, None, :] + (c1 - c0)[None, None, :] * t[..., None]
+    return rgb
 
 
 def make_frame(size):
     s = size * SS
+    k = s / BASE                      # escala lógica → píxeles
+    small = size <= 32
+    c = s / 2
+
+    # ── Fondo: degradado vertical + halo suave del acento detrás del centro.
+    bg = linear_gradient(s, BG_TOP, BG_BOT)
+    y, x = np.mgrid[0:s, 0:s]
+    d = np.hypot(x - c, y - c) / s
+    glow = np.clip(1 - d / 0.42, 0, 1) ** 2 * 0.22
+    bg = bg * (1 - glow[..., None]) + ACCENT_B[None, None, :] * glow[..., None]
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    img.paste(Image.fromarray(bg.astype(np.uint8), "RGB"), (0, 0), squircle_mask(s))
 
-    # Fondo con degradado vertical.
-    grad = Image.new("RGB", (1, s))
-    for y in range(s):
-        t = y / (s - 1)
-        grad.putpixel((0, y), tuple(int(TOP[i] + (BOT[i] - TOP[i]) * t) for i in range(3)))
-    grad = grad.resize((s, s))
+    # Capa del acento (se dibuja como máscara y se rellena con degradado diagonal).
+    accent_mask = Image.new("L", (s, s), 0)
+    am = ImageDraw.Draw(accent_mask)
+    white = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    wd = ImageDraw.Draw(white)
 
-    # Máscara redondeada (se dibuja a 4x → al reducir queda suave).
-    mask = Image.new("L", (s, s), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, s - 1, s - 1], radius=int(s * 0.22), fill=255)
-    img.paste(grad, (0, 0), mask)
+    # ── Barrido de radar (cuadrante superior derecho) con cola que se desvanece.
+    if not small:
+        r_sweep = 66 * k
+        ang = (np.degrees(np.arctan2(y - c, x - c)) + 360) % 360   # 0° = este, sentido horario
+        # El borde de ataque está a -45° (315°) y la cola se extiende 80° hacia atrás.
+        lead, span = 315.0, 80.0
+        behind = (lead - ang) % 360
+        inside = (np.hypot(x - c, y - c) <= r_sweep) & (behind <= span)
+        alpha = np.where(inside, np.clip(1 - behind / span, 0, 1) ** 1.3 * 0.85, 0)
+        sweep = Image.fromarray((alpha * 255).astype(np.uint8), "L")
+        accent_mask = Image.fromarray(np.maximum(np.array(accent_mask), np.array(sweep)))
+        am = ImageDraw.Draw(accent_mask)
+        # Línea del borde de ataque.
+        lx = c + r_sweep * math.cos(math.radians(lead))
+        ly = c + r_sweep * math.sin(math.radians(lead))
+        sx = c + 30 * k * math.cos(math.radians(lead))
+        sy = c + 30 * k * math.sin(math.radians(lead))
+        am.line([(sx, sy), (lx, ly)], fill=235, width=int(5 * k))
 
-    draw = ImageDraw.Draw(img)
+    # ── Anillo partido en cruz.
+    ring_r = 76 * k
+    ring_w = (16 if small else 11) * k
+    gap = 34 if small else 30          # grados de hueco en cada eje
+    box = [c - ring_r, c - ring_r, c + ring_r, c + ring_r]
+    for start in (0, 90, 180, 270):
+        wd.arc(box, start + gap / 2, start + 90 - gap / 2, fill=WHITE, width=int(ring_w))
 
-    # Acento: una barra rosa sutil abajo.
-    bar_h = max(2, int(s * 0.045))
-    bar_w = int(s * 0.34)
-    bx = (s - bar_w) // 2
-    by = int(s * 0.78)
-    draw.rounded_rectangle([bx, by, bx + bar_w, by + bar_h],
-                           radius=bar_h // 2, fill=PINK)
+    # ── Marcas de mira: cuñas afiladas hacia el centro que atraviesan los huecos.
+    t_in, t_out = (52, 102) if small else (48, 104)
+    w_out = (20 if small else 18) * k / 2
+    w_in = (12 if small else 3) * k / 2
+    for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
+        px, py = -dy, dx                      # perpendicular
+        xo, yo = c + dx * t_out * k, c + dy * t_out * k
+        xi, yi = c + dx * t_in * k, c + dy * t_in * k
+        wd.polygon([(xo + px * w_out, yo + py * w_out), (xo - px * w_out, yo - py * w_out),
+                    (xi - px * w_in, yi - py * w_in), (xi + px * w_in, yi + py * w_in)], fill=WHITE)
 
-    # Texto "RG" blanco + "." rosa, centrado.
-    font = load_font(int(s * 0.40))
-    bb_rg = draw.textbbox((0, 0), "RG", font=font)
-    bb_dot = draw.textbbox((0, 0), ".", font=font)
-    w_rg = bb_rg[2] - bb_rg[0]
-    w_dot = bb_dot[2] - bb_dot[0]
-    h_text = bb_rg[3] - bb_rg[1]
-    x = (s - w_rg - w_dot) // 2 - bb_rg[0]
-    y = int(s * 0.40) - h_text // 2 - bb_rg[1]
-    draw.text((x, y), "RG", fill=(255, 255, 255, 255), font=font)
-    draw.text((x + w_rg, y), ".", fill=PINK, font=font)
+    # ── Rombo central.
+    dr = (30 if small else 24) * k
+    am.polygon([(c, c - dr), (c + dr, c), (c, c + dr), (c - dr, c)], fill=255)
 
-    return img.resize((size, size), Image.LANCZOS)
+    # ── Punto de detección dentro del barrido.
+    if not small:
+        bx = c + 44 * k * math.cos(math.radians(330))
+        by = c + 44 * k * math.sin(math.radians(330))
+        br = 7.5 * k
+        am.ellipse([bx - br, by - br, bx + br, by + br], fill=255)
+
+    accent_rgb = linear_gradient(s, ACCENT_A, ACCENT_B, diagonal=True).astype(np.uint8)
+    accent = Image.fromarray(accent_rgb, "RGB").convert("RGBA")
+    accent.putalpha(accent_mask)
+
+    img = Image.alpha_composite(img, accent)
+    img = Image.alpha_composite(img, white)
+    # Recorta todo a la forma del fondo.
+    clip = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    clip.paste(img, (0, 0), squircle_mask(s))
+    return clip.resize((size, size), Image.LANCZOS)
 
 
 def build_ico(path, sizes):
@@ -86,8 +140,28 @@ def build_ico(path, sizes):
         f.write(header + directory + blob)
 
 
+def build_preview(path):
+    """Tira con los tamaños reales sobre fondo claro y oscuro."""
+    sizes = [256, 64, 48, 32, 24, 16]
+    pad = 24
+    w = sum(sizes) + pad * (len(sizes) + 1)
+    h = 256 + pad * 2
+    sheet = Image.new("RGBA", (w, h * 2), (0, 0, 0, 0))
+    ImageDraw.Draw(sheet).rectangle([0, 0, w, h], fill=(243, 243, 243, 255))
+    ImageDraw.Draw(sheet).rectangle([0, h, w, h * 2], fill=(32, 32, 32, 255))
+    for row in (0, 1):
+        x = pad
+        for s in sizes:
+            frame = make_frame(s)
+            sheet.alpha_composite(frame, (x, row * h + (h - s) // 2))
+            x += s + pad
+    sheet.save(path)
+
+
 if __name__ == "__main__":
-    out = os.path.join(os.path.dirname(__file__), "..", "src-cs", "RGVMonitor.App", "icon.ico")
+    here = os.path.dirname(os.path.abspath(__file__))
+    out = os.path.join(here, "..", "src-cs", "RGVMonitor.App", "icon.ico")
     out = os.path.abspath(out)
-    build_ico(out, [16, 32, 48, 64, 128, 256])
+    build_ico(out, [16, 20, 24, 32, 40, 48, 64, 128, 256])
+    build_preview(os.path.join(here, "icon_preview.png"))
     print("OK:", out, os.path.getsize(out), "bytes")

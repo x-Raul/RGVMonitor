@@ -1,5 +1,7 @@
 # RG Valorant Monitor
 
+<img src="icon.svg" alt="Logo de RG Valorant Monitor" width="96">
+
 RG Valorant Monitor es una aplicación de escritorio para Windows que muestra información de la partida actual de VALORANT. Está desarrollada con C#, .NET 8 y WinUI 3.
 
 ## Funciones
@@ -10,6 +12,7 @@ RG Valorant Monitor es una aplicación de escritorio para Windows que muestra in
 - Resolución de nombres después de la partida cuando estuvieron ocultos durante el encuentro.
 - Notas y etiquetas locales para jugadores.
 - Información de skins.
+- Overlays opcionales para OBS: marcador en vivo, tarjeta de fin de partida y reencuentros. Se sirven desde `localhost` y vienen desactivados.
 
 ## Requisitos
 
@@ -54,12 +57,25 @@ El resultado se guarda en `dist\RGVMonitor.exe`. Es una publicación `win-x64`
 autocontenida: el primer arranque extrae temporalmente los componentes de WinUI 3
 incluidos en el propio ejecutable.
 
+Si después de publicar el Explorador sigue mostrando el icono anterior, es la caché
+de iconos de Windows, que lo guarda por ruta. El ejecutable ya lleva el nuevo.
+
+## Versión
+
+La barra de título muestra la versión junto al nombre, con el commit desde el que se
+compiló (por ejemplo `v1.0.0 · b722af2`). El ejecutable la incluye también en
+Propiedades > Detalles.
+
+La versión se define en `<Version>` dentro de `src-cs\RGVMonitor.App\RGVMonitor.App.csproj`.
+Súbela antes de cada publicación.
+
 ## Estructura
 
 - `src-cs\RGVMonitor.App`: interfaz WinUI 3.
 - `src-cs\RGVMonitor.Core`: modelos, lógica y servicios.
 - `src-cs\RGVMonitor.Core.Tests`: pruebas automatizadas.
-- `tools`: utilidades del proyecto.
+- `tools`: utilidades del proyecto. `gen_icon.py` genera `icon.ico` y la vista previa del logo.
+- `icon.svg`: el logo en formato vectorial.
 - `run.ps1`: compilación y ejecución local.
 - `publish.ps1`: publicación del ejecutable portable.
 

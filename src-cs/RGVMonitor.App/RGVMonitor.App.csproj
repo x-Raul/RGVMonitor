@@ -9,6 +9,8 @@
     <!-- Nombre del exe publicado (el namespace sigue siendo RGVMonitor.App). -->
     <AssemblyName>RGVMonitor</AssemblyName>
     <Product>RGVMonitor</Product>
+    <!-- Versión de la app: se muestra en la barra de título. Subirla en cada release. -->
+    <Version>1.0.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
