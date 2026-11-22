@@ -46,7 +46,26 @@ public sealed partial class MatchPage : Page
             vm.Players.CollectionChanged += OnPlayersChanged;
             UpdateEmptyState();
             UpdateWinBar(animate: false); // refleja el estado actual al entrar
+            StartLivePulse();
         }
+    }
+
+    // Punto "en vivo" del título: un halo que se expande y se desvanece en bucle.
+    // Corre siempre; mientras no estás en partida el halo está oculto y no se ve.
+    private Storyboard? _livePulse;
+
+    private void StartLivePulse()
+    {
+        if (_livePulse is not null) return;
+        if (!new Windows.UI.ViewManagement.UISettings().AnimationsEnabled) return;
+
+        const int pulseMs = 1600;
+        var sb = new Storyboard();
+        AddLoop(sb, LiveHalo, "(UIElement.RenderTransform).(ScaleTransform.ScaleX)", 0.55, 1.7, 0, pulseMs);
+        AddLoop(sb, LiveHalo, "(UIElement.RenderTransform).(ScaleTransform.ScaleY)", 0.55, 1.7, 0, pulseMs);
+        AddLoop(sb, LiveHalo, "Opacity", 0.6, 0, 0, pulseMs);
+        _livePulse = sb;
+        sb.Begin();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -60,6 +79,8 @@ public sealed partial class MatchPage : Page
         _copyToastTimer.Stop();
         CopyToast.IsOpen = false;
         StopRadar();
+        _livePulse?.Stop();
+        _livePulse = null;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

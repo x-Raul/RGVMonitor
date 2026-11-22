@@ -120,7 +120,26 @@ public partial class MainViewModel : ObservableObject
     private Visibility _selfRankVisibility = Visibility.Collapsed;
 
     [ObservableProperty]
-    private string _selfRankCaption = "";
+    private string _selfRankName = "";
+
+    /// "4 RR · faltan 96".
+    [ObservableProperty]
+    private string _selfRankDetail = "";
+
+    [ObservableProperty]
+    private ImageSource? _selfRankIcon;
+
+    /// RR dentro del rango (0–100) para la barrita de progreso.
+    [ObservableProperty]
+    private double _selfRrProgress;
+
+    /// En selección de agente o en partida: el punto del título late en rojo.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LiveVisibility), nameof(IdleDotVisibility))]
+    private bool _isLive;
+
+    public Visibility LiveVisibility => IsLive ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility IdleDotVisibility => IsLive ? Visibility.Collapsed : Visibility.Visible;
 
     /// Tu RR restante cabe en una victoria típica (tarjeta de rango en azul + flecha).
     [ObservableProperty]
@@ -210,6 +229,7 @@ public partial class MainViewModel : ObservableObject
                 AllySummary = EnemySummary = null;
                 WinProbVisibility = Visibility.Collapsed;
                 SelfRankVisibility = Visibility.Collapsed;
+                IsLive = false;
                 Status = "VALORANT cerrado o no listo. Reintentando…";
             }
             finally
@@ -422,6 +442,7 @@ public partial class MainViewModel : ObservableObject
             Status = list.Count > 0
                 ? $"{list.Count} jugadores · {Label(state)}"
                 : $"Esperando… ({Label(state)})";
+            IsLive = list.Count > 0 && state is "PREGAME" or "INGAME";
 
             UpdateWinProbability(state, list);
             UpdateSelfRank(list, selfPuuid);
@@ -606,8 +627,13 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelfIsOneWinAway = toRankUp <= RankProgress.TypicalWinRr;
-        SelfRankCaption =
-            $"{RGVMonitor.Core.Content.RankTiers.Name(self.Rank.Tier)} · {self.Rank.Rr} RR · faltan {toRankUp}";
+        SelfRankName = RGVMonitor.Core.Content.RankTiers.Name(self.Rank.Tier);
+        SelfRankDetail = $"{self.Rank.Rr} RR · faltan {toRankUp}";
+        SelfRrProgress = Math.Clamp(self.Rank.Rr, 0, 100);
+        var icon = _rankIcons.GetValueOrDefault(self.Rank.Tier);
+        SelfRankIcon = string.IsNullOrEmpty(icon)
+            ? null
+            : new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(icon));
         SelfRankVisibility = Visibility.Visible;
     }
 

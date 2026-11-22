@@ -26,12 +26,31 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Partida en vivo" FontSize="22" FontWeight="Bold"
-                           CharacterSpacing="-10" VerticalAlignment="Center" />
+
+                <!-- Título con punto de estado: rojo y latiendo en selección/partida, gris en el lobby -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Grid Width="14" Height="14" VerticalAlignment="Center">
+                        <Ellipse x:Name="LiveHalo" Width="14" Height="14" Fill="{StaticResource EnemyBrush}"
+                                 Opacity="0" RenderTransformOrigin="0.5,0.5"
+                                 Visibility="{x:Bind ViewModel.LiveVisibility, Mode=OneWay}">
+                            <Ellipse.RenderTransform>
+                                <ScaleTransform />
+                            </Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="8" Height="8" Fill="{StaticResource EnemyBrush}"
+                                 Visibility="{x:Bind ViewModel.LiveVisibility, Mode=OneWay}" />
+                        <Ellipse Width="8" Height="8" Fill="{ThemeResource TextFillColorTertiaryBrush}"
+                                 Visibility="{x:Bind ViewModel.IdleDotVisibility, Mode=OneWay}" />
+                    </Grid>
+                    <TextBlock Text="Partida en vivo" FontSize="22" FontWeight="Bold"
+                               CharacterSpacing="-10" VerticalAlignment="Center" />
+                </StackPanel>
+
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                             HorizontalAlignment="Left" VerticalAlignment="Center">
                     <Border Padding="10,3" CornerRadius="10" VerticalAlignment="Center"
-                            Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                         <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </Border>
@@ -50,32 +69,48 @@
                     </Border>
                 </StackPanel>
 
-                <!-- Tu rango: pastilla (azul con flecha si estás a una victoria de subir) -->
+                <!-- Tu rango: emblema + nombre + barrita de RR. En cian con flecha si estás
+                     a una victoria de subir. -->
                 <Grid Grid.Column="2" VerticalAlignment="Center"
                       Visibility="{x:Bind ViewModel.SelfRankVisibility, Mode=OneWay}">
-                    <Border Padding="12,6" CornerRadius="8"
+                    <Border CornerRadius="10" BorderThickness="1"
                             Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                            Visibility="{x:Bind ViewModel.SelfRankNormalVisibility, Mode=OneWay}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="Tu rango" Style="{StaticResource CaptionTextStyle}" VerticalAlignment="Center" />
-                            <TextBlock Text="{x:Bind ViewModel.SelfRankCaption, Mode=OneWay}"
-                                       FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Border>
-                    <Border Padding="12,6" CornerRadius="8" BorderThickness="1"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            Visibility="{x:Bind ViewModel.SelfRankNormalVisibility, Mode=OneWay}" />
+                    <Border CornerRadius="10" BorderThickness="1"
                             Background="{StaticResource RankUpFillBrush}"
                             BorderBrush="{StaticResource RankUpBrush}"
-                            Visibility="{x:Bind ViewModel.SelfRankUpVisibility, Mode=OneWay}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE74A;" FontSize="12" FontWeight="Bold"
-                                      Foreground="{StaticResource RankUpBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="A una victoria" Style="{StaticResource CaptionTextStyle}"
-                                       Foreground="{StaticResource RankUpBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="{x:Bind ViewModel.SelfRankCaption, Mode=OneWay}"
-                                       FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
-                                       Foreground="{StaticResource RankUpBrush}" />
+                            Visibility="{x:Bind ViewModel.SelfRankUpVisibility, Mode=OneWay}" />
+                    <Grid Padding="8,5,14,5" ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Image Grid.Column="0" Source="{x:Bind ViewModel.SelfRankIcon, Mode=OneWay}"
+                               Width="30" Height="30" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="0">
+                            <TextBlock Text="TU RANGO" FontSize="10" FontWeight="SemiBold" CharacterSpacing="60"
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                       Visibility="{x:Bind ViewModel.SelfRankNormalVisibility, Mode=OneWay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="4"
+                                        Visibility="{x:Bind ViewModel.SelfRankUpVisibility, Mode=OneWay}">
+                                <FontIcon Glyph="&#xE74A;" FontSize="9" FontWeight="Bold"
+                                          Foreground="{StaticResource RankUpBrush}" />
+                                <TextBlock Text="A UNA VICTORIA" FontSize="10" FontWeight="SemiBold"
+                                           CharacterSpacing="60" Foreground="{StaticResource RankUpBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="{x:Bind ViewModel.SelfRankName, Mode=OneWay}"
+                                       FontSize="14" FontWeight="Bold" />
                         </StackPanel>
-                    </Border>
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="5" Margin="4,0,0,0">
+                            <TextBlock Text="{x:Bind ViewModel.SelfRankDetail, Mode=OneWay}" FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Typography.NumeralAlignment="Tabular" />
+                            <ProgressBar Width="96" Minimum="0" Maximum="100"
+                                         Value="{x:Bind ViewModel.SelfRrProgress, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
                 </Grid>
 
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
@@ -91,141 +126,162 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Marcador: Aliados (izq.) · probabilidad (centro) · Enemigos (der.) -->
-            <Border Style="{StaticResource SurfaceCardStyle}" Padding="20,14"
+            <!-- Marcador: Aliados (izq.) · probabilidad (centro) · Enemigos (der.).
+                 Cada lado lleva un degradado de su color que se apaga hacia el centro. -->
+            <Border Style="{StaticResource SurfaceCardStyle}"
                     Visibility="{x:Bind ViewModel.AllySummaryVisibility, Mode=OneWay}">
-                <Grid ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <Grid CornerRadius="11">
+                    <Rectangle>
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="#384C97ED" Offset="0" />
+                                <GradientStop Color="#0A4C97ED" Offset="0.32" />
+                                <GradientStop Color="#004C97ED" Offset="0.5" />
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <Rectangle Width="3" HorizontalAlignment="Left" Fill="{StaticResource AllyBrush}" />
+                    <Rectangle Visibility="{x:Bind ViewModel.EnemySummaryVisibility, Mode=OneWay}">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="#00EE4D4D" Offset="0.5" />
+                                <GradientStop Color="#0AEE4D4D" Offset="0.68" />
+                                <GradientStop Color="#38EE4D4D" Offset="1" />
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <Rectangle Width="3" HorizontalAlignment="Right" Fill="{StaticResource EnemyBrush}"
+                               Visibility="{x:Bind ViewModel.EnemySummaryVisibility, Mode=OneWay}" />
 
-                    <!-- Aliados -->
-                    <Grid Grid.Column="0" ColumnSpacing="16" HorizontalAlignment="Left">
+                    <Grid Padding="22,14" ColumnSpacing="24">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="4" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Rectangle Grid.Column="0" Style="{StaticResource TeamStripeStyle}"
-                                   Fill="{StaticResource AllyBrush}" />
-                        <Grid Grid.Column="1">
-                    <StackPanel Spacing="3" VerticalAlignment="Center" HorizontalAlignment="Left">
-                        <TextBlock Style="{StaticResource ColumnHeaderTextStyle}" HorizontalAlignment="Left"
-                                   Foreground="{StaticResource AllyBrush}">
-                            <Run Text="ALIADOS" /><Run Text=" · " /><Run Text="{x:Bind ViewModel.AllySummary.PlayerCount, Mode=OneWay}" />
-                        </TextBlock>
-                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left"
-                                    ToolTipService.ToolTip="Rango medio (sin contar Unranked)">
-                            <Image Source="{x:Bind ViewModel.AllySummary.RankIcon, Mode=OneWay}" Width="26" Height="26" />
-                            <TextBlock Text="{x:Bind ViewModel.AllySummary.RankName, Mode=OneWay}"
-                                       FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </StackPanel>
-                        </Grid>
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="KD" Style="{StaticResource NumericColumnHeaderTextStyle}" />
-                            <TextBlock Text="{x:Bind ViewModel.AllySummary.Kd, Mode=OneWay}"
-                                       Foreground="{x:Bind ViewModel.AllySummary.KdBrush, Mode=OneWay}"
-                                       Style="{StaticResource StatTextStyle}" FontSize="15" />
-                        </StackPanel>
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="HS" Style="{StaticResource NumericColumnHeaderTextStyle}" />
-                            <TextBlock Text="{x:Bind ViewModel.AllySummary.Hs, Mode=OneWay}"
-                                       Foreground="{x:Bind ViewModel.AllySummary.HsBrush, Mode=OneWay}"
-                                       Style="{StaticResource StatTextStyle}" FontSize="15" />
-                        </StackPanel>
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="WR" Style="{StaticResource NumericColumnHeaderTextStyle}" />
-                            <TextBlock Text="{x:Bind ViewModel.AllySummary.Wr, Mode=OneWay}"
-                                       Foreground="{x:Bind ViewModel.AllySummary.WrBrush, Mode=OneWay}"
-                                       Style="{StaticResource StatTextStyle}" FontSize="15" />
-                        </StackPanel>
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Probabilidad de victoria: 60 % [azul|rojo] 40 % -->
-                    <Grid Grid.Column="1" Width="340" VerticalAlignment="Center"
-                          Visibility="{x:Bind ViewModel.WinProbVisibility, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.WinProbAlly, Mode=OneWay}"
-                                   Style="{StaticResource SummaryFigureTextStyle}" FontSize="24"
-                                   Foreground="{StaticResource AllyBrush}" />
-                        <StackPanel Grid.Column="1" Spacing="6" Margin="14,0" VerticalAlignment="Center">
-                            <TextBlock Text="Probabilidad de victoria" Style="{StaticResource CaptionTextStyle}"
-                                       HorizontalAlignment="Center"
-                                       Visibility="{x:Bind ViewModel.WinProbNormalVisibility, Mode=OneWay}" />
-                            <!-- Menos de un 25 %: aviso en rojo -->
-                            <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"
-                                        Visibility="{x:Bind ViewModel.WinProbLowVisibility, Mode=OneWay}">
-                                <FontIcon Glyph="&#xE7BA;" FontSize="11" Foreground="{StaticResource EnemyBrush}" />
-                                <TextBlock Text="Probabilidad muy baja" Style="{StaticResource CaptionTextStyle}"
-                                           Foreground="{StaticResource EnemyBrush}" FontWeight="SemiBold" />
+
+                        <!-- Aliados -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" HorizontalAlignment="Left">
+                            <Grid Width="54" Height="54" VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="Rango medio (sin contar Unranked)">
+                                <Ellipse Fill="#264C97ED" Stroke="#994C97ED" StrokeThickness="1.5" />
+                                <Image Source="{x:Bind ViewModel.AllySummary.RankIcon, Mode=OneWay}" Width="36" Height="36" />
+                            </Grid>
+                            <StackPanel Spacing="1" VerticalAlignment="Center">
+                                <TextBlock FontSize="11" FontWeight="Bold" CharacterSpacing="80"
+                                           Foreground="{StaticResource AllyBrush}">
+                                    <Run Text="ALIADOS" /><Run Text="  ·  " /><Run Text="{x:Bind ViewModel.AllySummary.PlayerCount, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Text="{x:Bind ViewModel.AllySummary.RankName, Mode=OneWay}"
+                                           FontSize="19" FontWeight="Bold" CharacterSpacing="-10" />
                             </StackPanel>
-                            <!-- Barra enfrentada: azul = aliados, rojo = enemigos -->
-                            <Grid Height="6" CornerRadius="3" Background="{StaticResource EnemyBrush}">
-                                <Rectangle Fill="{StaticResource AllyBrush}">
-                                    <Rectangle.RenderTransform>
-                                        <ScaleTransform x:Name="WinBarScale" ScaleX="0.5" />
-                                    </Rectangle.RenderTransform>
-                                </Rectangle>
+                            <Border Style="{StaticResource StatTrayStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="14">
+                                    <StackPanel Style="{StaticResource StatCellStyle}">
+                                        <TextBlock Text="{x:Bind ViewModel.AllySummary.Kd, Mode=OneWay}"
+                                                   Foreground="{x:Bind ViewModel.AllySummary.KdBrush, Mode=OneWay}"
+                                                   Style="{StaticResource StatFigureTextStyle}" />
+                                        <TextBlock Text="KD" Style="{StaticResource StatLabelTextStyle}" />
+                                    </StackPanel>
+                                    <Rectangle Style="{StaticResource StatDividerStyle}" />
+                                    <StackPanel Style="{StaticResource StatCellStyle}">
+                                        <TextBlock Text="{x:Bind ViewModel.AllySummary.Hs, Mode=OneWay}"
+                                                   Foreground="{x:Bind ViewModel.AllySummary.HsBrush, Mode=OneWay}"
+                                                   Style="{StaticResource StatFigureTextStyle}" />
+                                        <TextBlock Text="HS" Style="{StaticResource StatLabelTextStyle}" />
+                                    </StackPanel>
+                                    <Rectangle Style="{StaticResource StatDividerStyle}" />
+                                    <StackPanel Style="{StaticResource StatCellStyle}">
+                                        <TextBlock Text="{x:Bind ViewModel.AllySummary.Wr, Mode=OneWay}"
+                                                   Foreground="{x:Bind ViewModel.AllySummary.WrBrush, Mode=OneWay}"
+                                                   Style="{StaticResource StatFigureTextStyle}" />
+                                        <TextBlock Text="WR" Style="{StaticResource StatLabelTextStyle}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Probabilidad de victoria: 60 % [azul|rojo] 40 % -->
+                        <Grid Grid.Column="1" Width="320" VerticalAlignment="Center"
+                              Visibility="{x:Bind ViewModel.WinProbVisibility, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.WinProbAlly, Mode=OneWay}"
+                                       Style="{StaticResource SummaryFigureTextStyle}" FontSize="28" FontWeight="Bold"
+                                       Foreground="{StaticResource AllyBrush}" />
+                            <StackPanel Grid.Column="1" Spacing="7" Margin="14,0" VerticalAlignment="Center">
+                                <TextBlock Text="PROB. DE VICTORIA" FontSize="10" FontWeight="SemiBold"
+                                           CharacterSpacing="80" HorizontalAlignment="Center"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                           Visibility="{x:Bind ViewModel.WinProbNormalVisibility, Mode=OneWay}" />
+                                <!-- Menos de un 25 %: aviso en rojo -->
+                                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"
+                                            Visibility="{x:Bind ViewModel.WinProbLowVisibility, Mode=OneWay}">
+                                    <FontIcon Glyph="&#xE7BA;" FontSize="11" Foreground="{StaticResource EnemyBrush}" />
+                                    <TextBlock Text="Probabilidad muy baja" Style="{StaticResource CaptionTextStyle}"
+                                               Foreground="{StaticResource EnemyBrush}" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <!-- Barra enfrentada: azul = aliados, rojo = enemigos; marca en el 50 % -->
+                                <Grid Height="8" CornerRadius="4" Background="{StaticResource EnemyBrush}">
+                                    <Rectangle Fill="{StaticResource AllyBrush}">
+                                        <Rectangle.RenderTransform>
+                                            <ScaleTransform x:Name="WinBarScale" ScaleX="0.5" />
+                                        </Rectangle.RenderTransform>
+                                    </Rectangle>
+                                    <Rectangle Height="4" VerticalAlignment="Top" Fill="#22FFFFFF" />
+                                    <Rectangle Width="2" HorizontalAlignment="Center" Fill="#99000000" />
+                                </Grid>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.WinProbEnemy, Mode=OneWay}"
+                                       Style="{StaticResource SummaryFigureTextStyle}" FontSize="28" FontWeight="Bold"
+                                       Foreground="{StaticResource EnemyBrush}" />
+                        </Grid>
+
+                        <!-- Enemigos (en espejo) -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="18" HorizontalAlignment="Right"
+                                    Visibility="{x:Bind ViewModel.EnemySummaryVisibility, Mode=OneWay}">
+                            <Border Style="{StaticResource StatTrayStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="14">
+                                    <StackPanel Style="{StaticResource StatCellStyle}">
+                                        <TextBlock Text="{x:Bind ViewModel.EnemySummary.Kd, Mode=OneWay}"
+                                                   Foreground="{x:Bind ViewModel.EnemySummary.KdBrush, Mode=OneWay}"
+                                                   Style="{StaticResource StatFigureTextStyle}" />
+                                        <TextBlock Text="KD" Style="{StaticResource StatLabelTextStyle}" />
+                                    </StackPanel>
+                                    <Rectangle Style="{StaticResource StatDividerStyle}" />
+                                    <StackPanel Style="{StaticResource StatCellStyle}">
+                                        <TextBlock Text="{x:Bind ViewModel.EnemySummary.Hs, Mode=OneWay}"
+                                                   Foreground="{x:Bind ViewModel.EnemySummary.HsBrush, Mode=OneWay}"
+                                                   Style="{StaticResource StatFigureTextStyle}" />
+                                        <TextBlock Text="HS" Style="{StaticResource StatLabelTextStyle}" />
+                                    </StackPanel>
+                                    <Rectangle Style="{StaticResource StatDividerStyle}" />
+                                    <StackPanel Style="{StaticResource StatCellStyle}">
+                                        <TextBlock Text="{x:Bind ViewModel.EnemySummary.Wr, Mode=OneWay}"
+                                                   Foreground="{x:Bind ViewModel.EnemySummary.WrBrush, Mode=OneWay}"
+                                                   Style="{StaticResource StatFigureTextStyle}" />
+                                        <TextBlock Text="WR" Style="{StaticResource StatLabelTextStyle}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel Spacing="1" VerticalAlignment="Center">
+                                <TextBlock FontSize="11" FontWeight="Bold" CharacterSpacing="80"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource EnemyBrush}">
+                                    <Run Text="ENEMIGOS" /><Run Text="  ·  " /><Run Text="{x:Bind ViewModel.EnemySummary.PlayerCount, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Text="{x:Bind ViewModel.EnemySummary.RankName, Mode=OneWay}"
+                                           FontSize="19" FontWeight="Bold" CharacterSpacing="-10"
+                                           HorizontalAlignment="Right" />
+                            </StackPanel>
+                            <Grid Width="54" Height="54" VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="Rango medio (sin contar Unranked)">
+                                <Ellipse Fill="#26EE4D4D" Stroke="#99EE4D4D" StrokeThickness="1.5" />
+                                <Image Source="{x:Bind ViewModel.EnemySummary.RankIcon, Mode=OneWay}" Width="36" Height="36" />
                             </Grid>
                         </StackPanel>
-                        <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.WinProbEnemy, Mode=OneWay}"
-                                   Style="{StaticResource SummaryFigureTextStyle}" FontSize="24"
-                                   Foreground="{StaticResource EnemyBrush}" />
-                    </Grid>
-
-                    <!-- Enemigos (en espejo) -->
-                    <Grid Grid.Column="2" ColumnSpacing="16" HorizontalAlignment="Right"
-                          Visibility="{x:Bind ViewModel.EnemySummaryVisibility, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="4" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="KD" Style="{StaticResource NumericColumnHeaderTextStyle}" />
-                            <TextBlock Text="{x:Bind ViewModel.EnemySummary.Kd, Mode=OneWay}"
-                                       Foreground="{x:Bind ViewModel.EnemySummary.KdBrush, Mode=OneWay}"
-                                       Style="{StaticResource StatTextStyle}" FontSize="15" />
-                        </StackPanel>
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="HS" Style="{StaticResource NumericColumnHeaderTextStyle}" />
-                            <TextBlock Text="{x:Bind ViewModel.EnemySummary.Hs, Mode=OneWay}"
-                                       Foreground="{x:Bind ViewModel.EnemySummary.HsBrush, Mode=OneWay}"
-                                       Style="{StaticResource StatTextStyle}" FontSize="15" />
-                        </StackPanel>
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="WR" Style="{StaticResource NumericColumnHeaderTextStyle}" />
-                            <TextBlock Text="{x:Bind ViewModel.EnemySummary.Wr, Mode=OneWay}"
-                                       Foreground="{x:Bind ViewModel.EnemySummary.WrBrush, Mode=OneWay}"
-                                       Style="{StaticResource StatTextStyle}" FontSize="15" />
-                        </StackPanel>
-                        </StackPanel>
-                        <Grid Grid.Column="1">
-                    <StackPanel Spacing="3" VerticalAlignment="Center" HorizontalAlignment="Right">
-                        <TextBlock Style="{StaticResource ColumnHeaderTextStyle}" HorizontalAlignment="Right"
-                                   Foreground="{StaticResource EnemyBrush}">
-                            <Run Text="ENEMIGOS" /><Run Text=" · " /><Run Text="{x:Bind ViewModel.EnemySummary.PlayerCount, Mode=OneWay}" />
-                        </TextBlock>
-                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
-                                    ToolTipService.ToolTip="Rango medio (sin contar Unranked)">
-                            <Image Source="{x:Bind ViewModel.EnemySummary.RankIcon, Mode=OneWay}" Width="26" Height="26" />
-                            <TextBlock Text="{x:Bind ViewModel.EnemySummary.RankName, Mode=OneWay}"
-                                       FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </StackPanel>
-                        </Grid>
-                        <Rectangle Grid.Column="2" Style="{StaticResource TeamStripeStyle}"
-                                   Fill="{StaticResource EnemyBrush}" />
                     </Grid>
                 </Grid>
             </Border>
