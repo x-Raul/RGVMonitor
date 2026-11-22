@@ -15,6 +15,11 @@ RG Valorant Monitor es una aplicación de escritorio para Windows que muestra in
 - Información de skins.
 - Overlays opcionales para OBS: marcador en vivo, tarjeta de fin de partida y reencuentros. Se sirven desde `localhost` y vienen desactivados.
 
+## Descargar
+
+Descarga `RGVMonitor.exe` de la [última versión](https://github.com/x-Raul/RGVMonitor/releases/latest).
+Es un ejecutable portable: no necesita instalación.
+
 ## Requisitos
 
 Para usar la aplicación:
@@ -70,6 +75,16 @@ y la fecha de compilación, y un botón para copiarla.
 
 La versión se define en `<Version>` dentro de `src-cs\RGVMonitor.App\RGVMonitor.App.csproj`.
 Súbela antes de cada publicación.
+
+Para publicar una versión en GitHub, sube un tag con el mismo número:
+
+```powershell
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+El workflow `release.yml` compila el ejecutable portable y crea la release con
+`RGVMonitor.exe` adjunto. Si el tag no coincide con `<Version>`, falla sin publicar nada.
 
 ## Estructura
 

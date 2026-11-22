@@ -1,0 +1,71 @@
+name: Release
+
+# Al subir un tag vX.Y.Z se compila el EXE portable (igual que publish.ps1)
+# y se publica como GitHub Release con el EXE adjunto para descargar.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Check tag matches csproj version
+        shell: pwsh
+        run: |
+          [xml]$proj = Get-Content src-cs/RGVMonitor.App/RGVMonitor.App.csproj
+          $version = ($proj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            Write-Error "El tag ${{ github.ref_name }} no coincide con la version del csproj ($version)."
+            exit 1
+          }
+
+      - name: Test
+        run: dotnet test src-cs/RGVMonitor.Core.Tests/RGVMonitor.Core.Tests.csproj --configuration Release
+
+      - name: Publish single-file EXE
+        shell: pwsh
+        run: |
+          msbuild src-cs/RGVMonitor.App/RGVMonitor.App.csproj `
+            -restore `
+            -t:Publish `
+            -p:Configuration=Release `
+            -p:Platform=x64 `
+            -p:RuntimeIdentifier=win-x64 `
+            -p:SelfContained=true `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:PublishSingleFile=true `
+            -p:IncludeAllContentForSelfExtract=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -p:PublishDir="$PWD\publish\" `
+            -v:m -nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path publish/RGVMonitor.exe)) { Write-Error "No se genero publish/RGVMonitor.exe"; exit 1 }
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" publish/RGVMonitor.exe `
+            --title "RGVMonitor ${{ github.ref_name }}" `
+            --generate-notes `
+            --latest
